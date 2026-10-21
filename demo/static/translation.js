@@ -7,6 +7,21 @@ const translatedRows = new Map();
 const translationParagraphs = new Map();
 let translationFrame = null;
 let translationPending = 0;
+let transcriptView = "bilingual";
+let translationEnabled = true;
+let translationModeEpoch = -1;
+function applyTranslationMode(enabled, epoch) {
+  if (typeof enabled !== "boolean") return;
+  if (typeof epoch === "number") {
+    if (epoch < translationModeEpoch) return;
+    translationModeEpoch = epoch;
+  }
+  translationEnabled = enabled;
+  if (typeof syncTranscriptMode === "function") syncTranscriptMode(enabled);
+}
+function translationStatus(count, hasText = true) {
+  return !translationEnabled ? "Translation paused" : count ? `${count} pending` : hasText ? "Up to date" : "Waiting for transcript";
+}
 const dirtyParagraphs = new Set();
 function setText(node, value) { if (node.textContent !== value) node.textContent = value; }
 function setData(node, name, value) { if (node.dataset[name] !== value) node.dataset[name] = value; }
@@ -30,7 +45,7 @@ function resetTranslation(sid, target) {
   updateTranslationPending(0);
   document.getElementById("transcript").replaceChildren();
   document.getElementById("translationTarget").textContent = translationLabel(target);
-  document.getElementById("translationState").textContent = "Waiting for transcript";
+  document.getElementById("translationState").textContent = translationStatus(0, false);
 }
 
 function makeSentencePair(id) {
@@ -56,9 +71,10 @@ function translationParagraph(data) {
     const body = document.createElement("div"); body.className = "sentence-list";
     const draft = makeSentencePair(); draft.element.dataset.pending = "true";
     body.append(draft.element);
-    element.append(heading, body);
+    const original = document.createElement("div"); original.className = "asr-original paragraph-text"; original.dir = "auto";
+    element.append(heading, body, original);
     document.getElementById("transcript").append(element);
-    row = {element, stamp, body, draft, units: new Map(), jobs: [], groups: [], dirtyGroups: new Set(), committedLength: 0, sourceText: "", start_s: undefined};
+    row = {element, stamp, body, draft, original, units: new Map(), jobs: [], groups: [], dirtyGroups: new Set(), committedLength: 0, sourceText: "", start_s: undefined};
     dirtyParagraphs.add(id);
     translationParagraphs.set(id, row);
   }
@@ -131,6 +147,10 @@ function renderTranslation() {
     for (const id of dirtyParagraphs) {
       const row = translationParagraphs.get(id);
       if (!row) continue;
+      if (transcriptView === "asr") {
+        setText(row.original, row.sourceText.trim());
+        continue;
+      }
       const tail = row.sourceText.slice(row.committedLength);
       for (const group of row.dirtyGroups) {
         let unit = row.units.get(group.id);
@@ -160,7 +180,15 @@ function renderTranslation() {
 
 function handleTranslationEvent(event) {
   const type = event.type;
+  if (type === "translation_mode") {
+    applyTranslationMode(event.enabled, event.epoch);
+    updateTranslationPending(event.pending);
+    setText(document.getElementById("translationState"), translationStatus(event.pending, translatedRows.size > 0));
+    return true;
+  }
+  if (type === "translation_activity") return true;
   if (type === "info") {
+    applyTranslationMode(event.translation_enabled, event.translation_epoch);
     if (event.languages) translationLanguages = event.languages;
     if (translationSid === null || (event.translation_target !== translationTargetCode && event.sid >= translationSid)) {
       resetTranslation(event.sid || 0, event.translation_target);
@@ -170,16 +198,18 @@ function handleTranslationEvent(event) {
   }
   if (type === "translation_reset") {
     if (translationSid !== null && event.sid < translationSid) return true;
+    applyTranslationMode(event.enabled, event.epoch);
     resetTranslation(event.sid, event.target);
     return false;
   }
   if (type === "translation_snapshot") {
     if (event.sid === null || (translationSid !== null && event.sid < translationSid)) return true;
+    applyTranslationMode(event.enabled, event.epoch);
     resetTranslation(event.sid, event.target);
     for (const paragraph of event.paragraphs || []) translationParagraph(paragraph);
     for (const segment of event.segments) translationRow(segment.id, segment);
     updateTranslationPending(event.pending);
-    document.getElementById("translationState").textContent = event.pending ? `${event.pending} pending` : event.segments.length ? "Up to date" : "Waiting for transcript";
+    document.getElementById("translationState").textContent = translationStatus(event.pending, event.segments.length > 0);
     renderTranslation();
     return false;
   }
@@ -201,7 +231,7 @@ function handleTranslationEvent(event) {
     }
     if (event.error) row.error = event.error;
     updateTranslationPending(event.pending);
-    setText(document.getElementById("translationState"), event.pending ? `${event.pending} pending` : "Up to date");
+    setText(document.getElementById("translationState"), translationStatus(event.pending));
     renderTranslation();
     return true;
   }

@@ -159,7 +159,7 @@ class Session:
         if a is None:
             return {"type": "info", "state": self.state}
         roll = a.info["roll_s"]
-        return {"type": "info", "sid": self.sid, "paragraph_options": dict(self.paragraph_options), "translation_target": self.target, "languages": LANGUAGES, "source_languages": list(SOURCE_LANGUAGES), "clocks": list(self.clocks), "clock_errors": dict(self.clock_errors), "lang": self.lang, "clock_ms": round(self.clock_ms),
+        return {"type": "info", "sid": self.sid, "paragraph_options": dict(self.paragraph_options), "translation_target": self.target, "translation_enabled": self.translations.enabled, "translation_epoch": self.translations.epoch, "translation_active": self.translations.worker_active, "languages": LANGUAGES, "source_languages": list(SOURCE_LANGUAGES), "clocks": list(self.clocks), "clock_errors": dict(self.clock_errors), "lang": self.lang, "clock_ms": round(self.clock_ms),
                 "delay_ms": round(self.clock_ms * a.info["num_delay_tokens"]),
                 "max_audio_s": None if roll else round((MAX_POS - STOP_MARGIN) * self.clock_ms / 1000, 1),
                 "roll_s": round(roll, 1) if roll else None,
@@ -195,7 +195,7 @@ class Session:
             self.stopping.wait(0.5)
 
     # ------------------------------------------------------------ control (HTTP threads)
-    def start(self, vid, offset_s=0.0, jump=False, target=None):
+    def start(self, vid, offset_s=0.0, jump=False, target=None, translation_enabled=None):
         """New run of `vid` from offset_s (a fresh engine session at that point of the video). jump = the page moved the
         playhead during a run (source and translation start a new shared session)."""
         p = media_path(vid)
@@ -206,6 +206,8 @@ class Session:
                 return None, "engine is loading"
         if video_lang(p) != self.lang:                   # the page switches the language when a video is selected
             return None, f"this video is {video_lang(p)}, the engine is {self.lang}: switch first"
+        if translation_enabled is not None and not isinstance(translation_enabled, bool):
+            return None, "Translation enabled must be a boolean"
         try:
             selected_target = target_for(self.lang, target if target is not None else self.target)
         except ValueError as error:
@@ -213,7 +215,7 @@ class Session:
         with self.lock:
             self.target = selected_target
             self.sid += 1
-            self.translations.begin(self.sid, self.lang, self.target)
+            self.translations.begin(self.sid, self.lang, self.target, enabled=translation_enabled)
             self.video, self.offset_s, self.jump = vid, max(0.0, float(offset_s)), bool(jump)
             self.ended = False
             self.audio = collections.deque(c for c in self.audio if c[0] == self.sid)
@@ -274,6 +276,14 @@ class Session:
                 result.update(sid=self.sid, segments=[], paragraphs=[], pending=0,
                               target=self.target)
             return result
+
+    def set_translation_enabled(self, enabled):
+        with self.lock:
+            try:
+                self.translations.set_enabled(enabled)
+            except (ValueError, RuntimeError) as error:
+                return str(error)
+        return None
 
     def set_target(self, target):
         try:
@@ -594,8 +604,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(f"{STATIC}/logo.png", "image/png")
         if p == "/pcm-worklet.js":
             return self._file(f"{STATIC}/pcm-worklet.js", "text/javascript; charset=utf-8")
-        if p == "/translation.js":
-            return self._file(f"{STATIC}/translation.js", "text/javascript; charset=utf-8")
+        if p in ("/translation.js", "/views.js"):
+            return self._file(f"{STATIC}{p}", "text/javascript; charset=utf-8")
         if p == "/api/videos":
             return self._json({"videos": S.videos(), **S.info()})
         if p == "/api/events":
@@ -636,7 +646,7 @@ class Handler(BaseHTTPRequestHandler):
                 error = S.set_paragraphs(b["paragraph_options"])
                 if error:
                     return self._json({"error": error}, 400)
-            sid, err = S.start(b.get("video", ""), b.get("offset_s", 0.0), b.get("jump", False), b.get("target"))
+            sid, err = S.start(b.get("video", ""), b.get("offset_s", 0.0), b.get("jump", False), b.get("target"), b.get("translation_enabled"))
             return self._json({"sid": sid} if err is None else {"error": err}, 200 if err is None else 409)
         if p == "/api/end":
             S.end(b.get("sid"))
@@ -647,6 +657,9 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/config":
             err = S.configure(str(b.get("clock_ms")), str(b.get("lang")))
             return self._json({} if err is None else {"error": err}, 200 if err is None else 409)
+        if p == "/api/translation-enabled":
+            error = S.set_translation_enabled(b.get("enabled"))
+            return self._json({"error": error} if error else {"enabled": S.translations.enabled, "epoch": S.translations.epoch, "active": S.translations.worker_active}, 409 if error else 200)
         if p == "/api/translation-target":
             error = S.set_target(b.get("target"))
             return self._json({"error": error} if error else {}, 409 if error else 200)

@@ -19,10 +19,10 @@ def _worker(commands, events, model_dir, sdk_dir):
         return
     condition = threading.Condition()
     pending = deque()
-    state = {"sid": None, "current": None, "closing": False}
+    state = {"sid": None, "epoch": 0, "current": None, "closing": False}
 
     def send(kind, task, **values):
-        events.put(dict(kind=kind, sid=task["sid"], id=task["id"], **values))
+        events.put(dict(kind=kind, sid=task["sid"], epoch=task["epoch"], id=task["id"], **values))
 
     def generate():
         while True:
@@ -31,15 +31,16 @@ def _worker(commands, events, model_dir, sdk_dir):
                 if state["closing"]:
                     return
                 task = pending.popleft()
-                if task["sid"] != state["sid"]:
+                if (task["sid"], task["epoch"]) != (state["sid"], state["epoch"]):
                     continue
                 state["current"] = task
+            events.put({"kind": "worker_activity", "active": True})
             start = time.monotonic()
             send("started", task, queue_ms=1000*(start-task["submitted"]))
             first = []
 
             def on_chunk(piece):
-                if task["sid"] != state["sid"]:
+                if (task["sid"], task["epoch"]) != (state["sid"], state["epoch"]):
                     return
                 now = time.monotonic()
                 if not first:
@@ -50,6 +51,8 @@ def _worker(commands, events, model_dir, sdk_dir):
                 # Prompt construction, tokenization and model execution stay in SDK.
                 if engine.count_prompt_tokens(task["text"], task["source"], task["target"]) > 512:
                     raise ValueError("Phrase exceeds the translation input limit; reduce the phrase length")
+                if (task["sid"], task["epoch"]) != (state["sid"], state["epoch"]):
+                    continue
                 result = engine.translate(task["text"], task["source"], task["target"], on_chunk=on_chunk)
                 end = time.monotonic()
                 send("cancelled" if result["cancelled"] else "done", task, text=result["text"],
@@ -60,6 +63,7 @@ def _worker(commands, events, model_dir, sdk_dir):
             finally:
                 with condition:
                     state["current"] = None
+                    events.put({"kind": "worker_activity", "active": False})
                     condition.notify_all()
 
     def cancel_obsolete():
@@ -70,7 +74,7 @@ def _worker(commands, events, model_dir, sdk_dir):
                 current = state["current"]
                 if state["closing"] and current is None:
                     return
-                if current and (state["closing"] or current["sid"] != state["sid"]):
+                if current and (state["closing"] or (current["sid"], current["epoch"]) != (state["sid"], state["epoch"])):
                     try:
                         engine.abort()
                     except Exception:
@@ -88,8 +92,9 @@ def _worker(commands, events, model_dir, sdk_dir):
             with condition:
                 if message["kind"] in ("reset", "close"):
                     state["sid"] = message.get("sid")
+                    state["epoch"] = message.get("epoch", state["epoch"]+1)
                     pending.clear()
-                elif message["kind"] == "translate" and message["sid"] == state["sid"]:
+                elif message["kind"] == "translate" and (message["sid"], message["epoch"]) == (state["sid"], state["epoch"]):
                     pending.append(message)
                 if message["kind"] == "close":
                     state["closing"] = True
@@ -108,6 +113,7 @@ class TranslationService:
         self.lock = threading.RLock()
         self.sid, self.language, self.target = None, "en", "zh"
         self.records = {}
+        self.enabled, self.epoch, self.worker_active = True, 0, False
         self.closed = False
         context = mp.get_context("spawn")
         self.commands, self.events = context.Queue(), context.Queue()
@@ -123,39 +129,79 @@ class TranslationService:
             raise
         threading.Thread(target=self._listen, daemon=True).start()
 
-    def begin(self, sid, language, target=None):
+    def _reset_worker(self):
+        self.epoch += 1
+        self.commands.put({"kind": "reset", "sid": self.sid, "epoch": self.epoch})
+
+    def begin(self, sid, language, target=None, enabled=None):
+        if enabled is not None and not isinstance(enabled, bool):
+            raise ValueError("Translation enabled must be a boolean")
         with self.lock:
+            if enabled is not None:
+                self.enabled = enabled
             self.sid, self.language, self.records = sid, language, {}
             self.target = target or ("en" if language == "zh" else "zh")
-            self.commands.put({"kind": "reset", "sid": sid})
+            self._reset_worker()
             self.broadcast({"type": "translation_reset", "sid": sid, "source": language,
-                            "target": self.target})
+                            "target": self.target, "enabled": self.enabled, "epoch": self.epoch})
 
     def cancel(self):
         with self.lock:
             for record in self.records.values():
-                if record["status"] in ("queued", "started", "chunk"):
+                if record["status"] in ("queued", "started", "chunk", "paused"):
                     record["status"] = "cancelled"
                     record["revision"] += 1
                     self.broadcast(dict(type="translation", kind="cancelled", sid=self.sid,
                                         id=record["id"], revision=record["revision"], pending=0))
             self.sid = None
-            self.commands.put({"kind": "reset", "sid": None})
+            self._reset_worker()
+
+    def _queue_task(self, record):
+        self.commands.put(dict(kind="translate", sid=self.sid, epoch=self.epoch,
+                               id=record["id"], text=record["source_text"], source=self.language,
+                               target=self.target, submitted=time.monotonic()))
+
+    def set_enabled(self, enabled):
+        if not isinstance(enabled, bool):
+            raise ValueError("Translation enabled must be a boolean")
+        with self.lock:
+            if self.enabled == enabled:
+                return
+            if enabled and not self.process.is_alive():
+                raise RuntimeError("Translation worker is unavailable")
+            self.enabled = enabled
+            self._reset_worker()
+            if not enabled:
+                for record in self.records.values():
+                    if record["status"] in ("queued", "started", "chunk"):
+                        record["status"] = "paused"
+                        record["revision"] += 1
+                        self.broadcast(dict(type="translation", kind="paused", sid=self.sid,
+                                            **record, pending=0))
+            else:
+                paused = [record for record in self.records.values() if record["status"] == "paused"]
+                for record in paused:
+                    record.update(status="queued", translation="", revision=record["revision"]+1)
+                for record in paused:
+                    self.broadcast(dict(type="translation", kind="queued", sid=self.sid,
+                                        **record, pending=self._pending()))
+                    self._queue_task(record)
+            self.broadcast(dict(type="translation_mode", sid=self.sid, enabled=enabled, epoch=self.epoch,
+                                pending=self._pending()))
 
     def submit(self, sid, segment, paragraph_id=1):
         with self.lock:
             if sid != self.sid or self.closed:
                 return
+            status = "queued" if self.enabled else "paused"
             record = dict(asdict(segment), paragraph_id=paragraph_id, source_text=segment.text,
                           source_language=self.language, target_language=self.target,
-                          translation="", status="queued", revision=0)
+                          translation="", status=status, revision=0)
             self.records[segment.id] = record
-            task = dict(kind="translate", sid=sid, id=segment.id, text=segment.text,
-                        source=self.language, target=self.target,
-                        submitted=time.monotonic())
-            self.broadcast(dict(type="translation", kind="queued", sid=sid, **record,
+            self.broadcast(dict(type="translation", kind=status, sid=sid, **record,
                                 pending=self._pending()))
-            self.commands.put(task)
+            if self.enabled:
+                self._queue_task(record)
 
     def _pending(self):
         return sum(r["status"] in ("queued", "started", "chunk") for r in self.records.values())
@@ -163,8 +209,29 @@ class TranslationService:
     def snapshot(self):
         with self.lock:
             return dict(type="translation_snapshot", sid=self.sid,
-                        target=self.target,
+                        target=self.target, enabled=self.enabled, epoch=self.epoch, active=self.worker_active,
                         segments=[dict(r) for r in self.records.values()], pending=self._pending())
+
+    def _handle_event(self, event):
+        with self.lock:
+            if event["kind"] == "worker_activity":
+                self.worker_active = event["active"]
+                self.broadcast(dict(type="translation_activity", sid=self.sid,
+                                    active=self.worker_active, enabled=self.enabled))
+                return
+            if (event.get("sid"), event.get("epoch")) != (self.sid, self.epoch) or not self.enabled or event.get("id") not in self.records:
+                return
+            record = self.records[event["id"]]
+            record["status"] = event["kind"]
+            record["revision"] += 1
+            if event["kind"] == "chunk":
+                record["translation"] += event["piece"]
+            if event["kind"] in ("done", "cancelled"):
+                record["translation"] = event["text"]
+            for key in ("error", "first_ms", "complete_ms", "stats"):
+                if key in event:
+                    record[key] = event[key]
+            self.broadcast(dict(type="translation", **event, revision=record["revision"], pending=self._pending()))
 
     def _listen(self):
         while not self.closed:
@@ -173,6 +240,7 @@ class TranslationService:
             except queue.Empty:
                 if not self.process.is_alive():
                     with self.lock:
+                        self.worker_active = False
                         for row in self.records.values():
                             if row["status"] in ("queued", "started", "chunk"):
                                 row["status"] = "error"
@@ -180,20 +248,7 @@ class TranslationService:
                                                     id=row["id"], error="Translation worker stopped", pending=0))
                     return
                 continue
-            with self.lock:
-                if event.get("sid") != self.sid or event.get("id") not in self.records:
-                    continue
-                record = self.records[event["id"]]
-                record["status"] = event["kind"]
-                record["revision"] += 1
-                if event["kind"] == "chunk":
-                    record["translation"] += event["piece"]
-                if event["kind"] in ("done", "cancelled"):
-                    record["translation"] = event["text"]
-                for key in ("error", "first_ms", "complete_ms", "stats"):
-                    if key in event:
-                        record[key] = event[key]
-                self.broadcast(dict(type="translation", **event, revision=record["revision"], pending=self._pending()))
+            self._handle_event(event)
 
     def close(self):
         if self.closed:
