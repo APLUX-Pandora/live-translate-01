@@ -319,7 +319,7 @@
 <script>
 const $ = id => document.getElementById(id);
 const video = $("video"), tr = $("transcript");
-let sid = null, running = false, clockTimer = null, text = "", maxAudio = null, restarting = false;
+let sid = null, running = false, clockTimer = null, maxAudio = null, restarting = false;
 let videos = [], lang = "en", clock = null;
 const EOT_COLORS = ["#f47067", "#f0b429", "#4f8cff", "#a371f7"];
 let resetsSeen = 0, needStamp = true, seekTimer = null;
@@ -396,13 +396,13 @@ function sendVadParams() {
   post("/api/vad", { threshold: parseFloat($("vTh").value), preroll_s: parseFloat($("vPre").value) });
 }
 function copyText() {
-  const t = text.trim(); if (!t) return;
+  const t = originalText().trim(); if (!t) return;
   const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
   let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
   ta.remove(); $("copyBtn").textContent = ok ? "Copied" : "Copy failed"; setTimeout(() => $("copyBtn").textContent = "Copy", 1200);
 }
 function downloadText() {
-  const t = text.trim(); if (!t) return;
+  const t = originalText().trim(); if (!t) return;
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t + "\n"], { type: "text/plain" }));
   a.download = ($("videoSel").value || "transcript").split("/").pop().replace(/\.[^.]+$/, "") + "_transcript.txt"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -414,7 +414,7 @@ function setState(s, label) {
 }
 function resetTranscript(keepText, preservePairs = false) {
   if (!keepText) {
-    text = ""; sourceParagraphs.clear();
+    sourceUnitCount = 0; sourceParagraphs.clear();
     if (!preservePairs) { translationParagraphs.clear(); tr.replaceChildren(); }
   }
   needStamp = true;
@@ -426,6 +426,10 @@ function resetTranscript(keepText, preservePairs = false) {
   rtfPts.length = 0; rtfSeries = 0; $("rtfVal").textContent = "-"; redrawRtf();
 }
 const sourceParagraphs = new Map();
+let sourceUnitCount = 0;
+function originalText() {
+  return [...sourceParagraphs.values()].map(p => `[${fmtT(p.start_s)}] ${p.text.trim()}`).join("\n\n");
+}
 function renderSource(part) {
   let row = sourceParagraphs.get(part.id);
   if (row && part.revision <= row.revision) return;
@@ -434,9 +438,10 @@ function renderSource(part) {
   if (!row) {
     row = {element: pair.element}; sourceParagraphs.set(part.id, row);
   }
+  const units = countUnits(part.text);
+  sourceUnitCount += units - (row.count || 0); row.count = units;
   row.revision = part.revision; row.text = part.text; row.start_s = part.start_s;
   renderTranslation();
-  text = [...sourceParagraphs.values()].map(p => `[${fmtT(p.start_s)}] ${p.text.trim()}`).join("\n\n");
   if (follow) tr.scrollTop = tr.scrollHeight;
 }
 function paragraphOptions() { return {enabled: $("ePara").checked, horizon: eotHz[eotSel], threshold: eotThr()}; }
@@ -732,7 +737,7 @@ function handleEvent(ev) {
     $("sAudio").textContent = fmtT(ev.audio_s);
     $("sStep").textContent = ev.step_ms_median.toFixed(0) + " ms";
     if (ev.first_char_s !== null) $("sFirst").textContent = ev.first_char_s.toFixed(2) + " s";
-    $("sWords").textContent = countUnits(text);
+    $("sWords").textContent = sourceUnitCount;
     onEot(ev);
     if (ev.speech_prob != null) {
       $("vadFill").style.width = (100 * ev.speech_prob).toFixed(0) + "%";

@@ -13,7 +13,7 @@ class Segment:
 
 
 class Segmenter:
-    def __init__(self, language, delay_tokens=3, soft_wait_s=6.0, hard_wait_s=12.0):
+    def __init__(self, language, delay_tokens=3, soft_wait_s=3.5, hard_wait_s=12.0):
         self.language = language
         self.delay_tokens = delay_tokens
         self.soft_wait_s, self.hard_wait_s = soft_wait_s, hard_wait_s
@@ -36,6 +36,15 @@ class Segmenter:
                          "first", "second", "third", "another", "each", "every", "such"}
             return words[-1].lower() not in open_ends and (not pause or len(words) >= 4)
         return not pause or len(re.findall(r"[\w]", text)) >= 8
+
+    def _useful_clause(self, text, early=True):
+        # Earlier submission needs enough context; never commit a short lead-in.
+        units = re.findall(r"[A-Za-z]+(?:['’][A-Za-z]+)?|\d+", text) if self.language == "en" else re.findall(r"[\w]", text)
+        if self.language == "en" and re.search(
+                r"\b(?:what|who|which|where|how)\b[^.!?]*\b(?:is|are|was|were|does|do|did|can|could|would|will|should)\s*[,，:：]$", text, re.I):
+            return False
+        minimum = (8 if early else 4) if self.language == "en" else (12 if early else 6)
+        return len(units) >= minimum and self._complete_phrase(text)
 
     def _boundaries(self, clauses=False):
         text = self.pending
@@ -111,7 +120,7 @@ class Segmenter:
         age = audio_s-self.times[0]
         max_chars = 96 if self.language == "zh" else 256
         if age >= self.soft_wait_s or len(self.pending) >= max_chars:
-            clauses = [i for i in self._boundaries(clauses=True) if len(self.pending[:i].strip()) >= 6]
+            clauses = [i for i in self._boundaries(clauses=True) if self._useful_clause(self.pending[:i], early=age < 6.0 and len(self.pending) < max_chars)]
             if clauses:
                 return output+self._commit(clauses[-1], "clause")
         if age >= self.hard_wait_s or len(self.pending) >= max_chars:

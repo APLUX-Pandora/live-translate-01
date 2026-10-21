@@ -7,10 +7,14 @@ const translatedRows = new Map();
 const translationParagraphs = new Map();
 let translationFrame = null;
 let translationPending = 0;
+const dirtyParagraphs = new Set();
+function setText(node, value) { if (node.textContent !== value) node.textContent = value; }
+function setData(node, name, value) { if (node.dataset[name] !== value) node.dataset[name] = value; }
 
 function updateTranslationPending(count) {
+  const changed = translationPending !== count;
   translationPending = count;
-  if (typeof updateLanguageAvailability === "function") updateLanguageAvailability();
+  if (changed && typeof updateLanguageAvailability === "function") updateLanguageAvailability();
   document.getElementById("clearBtn").disabled = count > 0 || document.getElementById("state").classList.contains("running");
   const header = document.getElementById("state");
   if (count && header.textContent === "Done") header.textContent = "Finishing translation";
@@ -22,6 +26,7 @@ function resetTranslation(sid, target) {
   translationTargetCode = target;
   translatedRows.clear();
   translationParagraphs.clear();
+  dirtyParagraphs.clear();
   updateTranslationPending(0);
   document.getElementById("transcript").replaceChildren();
   document.getElementById("translationTarget").textContent = translationLabel(target);
@@ -53,11 +58,17 @@ function translationParagraph(data) {
     body.append(draft.element);
     element.append(heading, body);
     document.getElementById("transcript").append(element);
-    row = {element, stamp, body, draft, units: new Map(), sourceText: "", start_s: data.start_s};
+    row = {element, stamp, body, draft, units: new Map(), jobs: [], groups: [], dirtyGroups: new Set(), committedLength: 0, sourceText: "", start_s: undefined};
+    dirtyParagraphs.add(id);
     translationParagraphs.set(id, row);
   }
-  if (data.text !== undefined) row.sourceText = data.text;
-  if (data.start_s !== undefined) {
+  if (data.text !== undefined && data.text !== row.sourceText) {
+    row.sourceText = data.text;
+    dirtyParagraphs.add(id);
+    const last = row.groups[row.groups.length-1];
+    if (last && !last.closed) row.dirtyGroups.add(last);
+  }
+  if (data.start_s !== undefined && data.start_s !== row.start_s) {
     row.start_s = data.start_s;
     row.stamp.textContent = `[${fmtT(data.start_s)}] `;
     row.stamp.dataset.t = data.start_s;
@@ -65,7 +76,8 @@ function translationParagraph(data) {
   return row;
 }
 function translationRow(id, data) {
-  const row = translatedRows.get(id) || {id, text: "", status: "queued", revision: -1};
+  const existing = translatedRows.get(id);
+  const row = existing || {id, text: "", status: "queued", revision: -1};
   if (data.source_text !== undefined) row.sourceText = data.source_text;
   if (data.translation !== undefined) row.text = data.translation;
   if (data.status) row.status = data.status;
@@ -73,7 +85,21 @@ function translationRow(id, data) {
   if (data.revision !== undefined) row.revision = data.revision;
   row.paragraph_id = data.paragraph_id || row.paragraph_id || 1;
   translatedRows.set(id, row);
-  translationParagraph({paragraph_id: row.paragraph_id});
+  const paragraph = translationParagraph({paragraph_id: row.paragraph_id});
+  if (!existing) {
+    paragraph.jobs.push(row);
+    paragraph.committedLength += (row.sourceText || "").length;
+    let group = paragraph.groups[paragraph.groups.length-1];
+    if (!group || group.closed) {
+      group = {id: row.id, jobs: [], source: "", closed: false};
+      paragraph.groups.push(group);
+    }
+    group.jobs.push(row); group.source += row.sourceText || "";
+    group.closed = closesSourceSentence(row);
+    row.group = group;
+  }
+  paragraph.dirtyGroups.add(row.group);
+  dirtyParagraphs.add(row.paragraph_id);
   return row;
 }
 function joinTranslationJobs(jobs) {
@@ -87,26 +113,13 @@ function joinTranslationJobs(jobs) {
   return text;
 }
 function paragraphTranslation(id) {
-  return joinTranslationJobs([...translatedRows.values()].filter(job => job.paragraph_id === id));
+  return joinTranslationJobs(translationParagraphs.get(id)?.jobs || []);
 }
 function closesSourceSentence(job) {
   if (["sentence", "semantic_pause", "speech_pause", "finish"].includes(job.reason)) return true;
   const text = (job.sourceText || "").trim().replace(/[”’"')\]}]+$/u, "");
   if (/[。！？!?；;]$/u.test(text)) return true;
   return /\.$/.test(text) && !/(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|etc)|\b[A-Za-z])\.$/i.test(text);
-}
-function sentenceGroups(jobs) {
-  const groups = [];
-  let group = null;
-  for (const job of jobs) {
-    if (!group) { group = {id: job.id, jobs: [], closed: false}; groups.push(group); }
-    group.jobs.push(job);
-    // Clause and latency-limit jobs are parts of the same source sentence.
-    if (closesSourceSentence(job)) {
-      group.closed = true; group = null;
-    }
-  }
-  return groups;
 }
 
 function renderTranslation() {
@@ -115,30 +128,32 @@ function renderTranslation() {
     translationFrame = null;
     const list = document.getElementById("transcript");
     const follow = list.scrollHeight-list.scrollTop-list.clientHeight < 100;
-    for (const [id, row] of translationParagraphs) {
-      const jobs = [...translatedRows.values()].filter(job => job.paragraph_id === id);
-      const groups = sentenceGroups(jobs);
-      const committed = jobs.map(job => job.sourceText || "").join("");
-      const tail = row.sourceText.startsWith(committed) ? row.sourceText.slice(committed.length) : "";
-      for (const group of groups) {
+    for (const id of dirtyParagraphs) {
+      const row = translationParagraphs.get(id);
+      if (!row) continue;
+      const tail = row.sourceText.slice(row.committedLength);
+      for (const group of row.dirtyGroups) {
         let unit = row.units.get(group.id);
         if (!unit) {
           unit = makeSentencePair(group.id);
           row.units.set(group.id, unit);
           row.body.insertBefore(unit.element, row.draft.element);
         }
-        const source = group.jobs.map(job => job.sourceText || "").join("");
-        unit.source.textContent = (source + (group.closed ? "" : tail)).trim();
-        unit.target.textContent = joinTranslationJobs(group.jobs);
-        unit.element.dataset.translated = String(Boolean(unit.target.textContent));
-        unit.element.dataset.status = group.jobs.some(job => ["queued", "started", "chunk"].includes(job.status)) ? "chunk" : "done";
-        unit.element.title = group.jobs.filter(job => job.error).map(job => job.error).join("; ");
+        setText(unit.source, (group.source + (group.closed ? "" : tail)).trim());
+        const translated = joinTranslationJobs(group.jobs);
+        setText(unit.target, translated);
+        setData(unit.element, "translated", String(Boolean(translated)));
+        setData(unit.element, "status", group.jobs.some(job => ["queued", "started", "chunk"].includes(job.status)) ? "chunk" : "done");
+        const error = group.jobs.filter(job => job.error).map(job => job.error).join("; ");
+        if (unit.element.title !== error) unit.element.title = error;
       }
-      const draft = groups.length && !groups[groups.length-1].closed ? "" : tail;
-      row.draft.source.textContent = draft.trim();
-      row.draft.element.hidden = !draft.trim();
-      row.stamp.textContent = row.start_s === undefined ? "" : `[${fmtT(row.start_s)}] `;
+      row.dirtyGroups.clear();
+      const last = row.groups[row.groups.length-1];
+      const draft = last && !last.closed ? "" : tail.trim();
+      setText(row.draft.source, draft);
+      if (row.draft.element.hidden !== !draft) row.draft.element.hidden = !draft;
     }
+    dirtyParagraphs.clear();
     if (follow) list.scrollTop = list.scrollHeight;
   });
 }
@@ -186,7 +201,7 @@ function handleTranslationEvent(event) {
     }
     if (event.error) row.error = event.error;
     updateTranslationPending(event.pending);
-    document.getElementById("translationState").textContent = event.pending ? `${event.pending} pending` : "Up to date";
+    setText(document.getElementById("translationState"), event.pending ? `${event.pending} pending` : "Up to date");
     renderTranslation();
     return true;
   }
