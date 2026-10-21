@@ -125,23 +125,14 @@
   .translation-bar h2 { margin: 0 auto 0 0; font-size: 12px; }
   #translationState { color: var(--muted); font-size: 11px; }
   #copyTranslation { font-size: 11px; padding: 3px 8px; }
-  .paragraph-pair { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 8px 12px; padding: 12px 0 16px; border-bottom: 1px solid var(--line); }
-  .paragraph-pair:first-child { padding-top: 0; }
-  .pair-heading { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+  .paragraph-pair { margin: 0 0 20px; }
+  .pair-heading { margin-bottom: 2px; }
   .pair-heading .stamp { margin: 0; }
-  .pair-label { color: var(--muted); font-size: 11px; line-height: 1.4; font-weight: 500; }
+  .pair-label { display: none; }
   .paragraph-text, .translation-row { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .paragraph-text { font-size: 16px; line-height: 1.6; }
-  .original-row, .translation-row { min-width: 0; }
-  .original-row .pair-label { display: block; margin-bottom: 3px; }
-  .translation-row { padding: 0 0 0 10px; border-left: 2px solid var(--accent); background: #ffffff04; border-radius: 0 5px 5px 0; }
-  .translation-row .pair-label { display: block; margin-bottom: 3px; }
-  .translation-row .target { font-size: 18px; line-height: 1.65; }
-  .paragraph-pair[data-status="waiting"] .target { color: var(--muted); font-size: 14px; }
-  @media (max-width: 600px) {
-    .paragraph-pair { grid-template-columns: minmax(0, 1fr); }
-    .translation-row { padding: 8px 10px; }
-  }
+  .paragraph-text, .translation-row .target { font-size: 18px; line-height: 1.65; }
+  .translation-row { margin-top: 4px; color: #a7c7f5; }
+  .paragraph-pair[data-translated="false"] .translation-row { display: none; }
   .paragraph-pair[data-status="chunk"] .target::after { content: " ▍"; color: var(--fresh); }
 
 </style>
@@ -205,7 +196,7 @@
     </div>
   </section>
   <section class="panel right">
-    <div class="bar"><h2>Transcript &amp; translation</h2>
+    <div class="bar"><h2>Bilingual transcript</h2>
       <button id="copyBtn">Copy original</button><button id="dlBtn">Export original</button><button id="clearBtn">Clear display</button></div>
     <div class="translation-bar"><h2 id="translationTarget">Translation</h2><span id="translationState" role="status">Waiting for transcript</span><button id="copyTranslation">Copy translation</button></div>
     <div id="transcript" tabindex="0" role="log" aria-label="Original and translated paragraphs" aria-live="polite" aria-relevant="additions text"></div>
@@ -236,7 +227,7 @@
 </main>
 <div id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
  <div class="doc">
-<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. Each paragraph pairs its original text and translation in the same row with a shared timestamp and scroll position. Narrow screens stack each pair vertically. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
+<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. One text area shows each original paragraph first, followed immediately by its streamed translation. The next original/translation pair follows the same transcript paragraph breaks. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
   <button class="close" id="helpClose" aria-label="Close">×</button>
   <h2 id="helpTitle">Live Translate 01 · web demo · user manual</h2>
   <p class="muted">Everything runs on the board (NPU for the models, CPU for audio front end, VAD and decoding). This page is served by the
@@ -254,7 +245,7 @@
   <h3>2. Screen layout</h3>
   <ul>
     <li><b>Top left</b> – video player and the controls.</li>
-    <li><b>Right</b> – paired paragraphs: original text beside its translation (stacked on narrow screens), sharing one timestamp and scroll position. New original words appear in light blue and settle to white.</li>
+    <li><b>Right</b> – a bilingual text area: each original paragraph followed by its translation, sharing one timestamp and scroll position. New original words appear in light blue and settle to white.</li>
     <li><b>Bottom bar</b> – live metrics: run statistics, Silero VAD, board DRAM, RTF and end of turn.</li>
     <li><b>Header</b> – current audio clock and context mode, model load time, run state (Ready / Transcribing / Done / Stopped).</li>
   </ul>

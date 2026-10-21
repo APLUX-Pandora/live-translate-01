@@ -35,6 +35,7 @@ function translationParagraph(data) {
     const element = document.createElement("article");
     element.className = "paragraph-pair transcript-paragraph";
     element.dataset.paragraphId = id;
+    element.dataset.translated = "false";
     const heading = document.createElement("div"); heading.className = "pair-heading";
     const stamp = document.createElement("span"); stamp.className = "stamp"; stamp.title = "Play from here";
     const label = document.createElement("span"); label.className = "pair-label"; label.textContent = "Original";
@@ -92,6 +93,7 @@ function renderTranslation() {
       const active = jobs.some(job => ["queued", "started", "chunk"].includes(job.status));
       row.stamp.textContent = row.start_s === undefined ? "" : `[${fmtT(row.start_s)}] `;
       row.target.textContent = row.text || "Waiting for translation…";
+      row.element.dataset.translated = String(Boolean(row.text));
       row.element.dataset.status = active ? "chunk" : row.text ? "done" : "waiting";
       row.element.title = jobs.filter(job => job.error).map(job => job.error).join("; ");
     }
