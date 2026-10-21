@@ -9,11 +9,11 @@ import threading
 import time
 
 
-def _worker(commands, events, model_dir, sdk_dir):
+def _worker(commands, events, model_dir, sdk_dir, library=None):
     sys.path.insert(0, sdk_dir)
     from multilingual_translation import Translator
     try:
-        engine = Translator(model_dir)
+        engine = Translator(model_dir, library=library)
     except Exception as exc:
         events.put({"kind": "load_error", "error": str(exc)})
         return
@@ -85,7 +85,7 @@ def _worker(commands, events, model_dir, sdk_dir):
     canceller = threading.Thread(target=cancel_obsolete, daemon=True)
     generator.start()
     canceller.start()
-    events.put({"kind": "ready"})
+    events.put({"kind": "ready", "info": engine.info})
     try:
         while True:
             message = commands.get()
@@ -108,7 +108,7 @@ def _worker(commands, events, model_dir, sdk_dir):
 
 
 class TranslationService:
-    def __init__(self, model_dir, sdk_dir, broadcast):
+    def __init__(self, model_dir, sdk_dir, broadcast, library=None):
         self.broadcast = broadcast
         self.lock = threading.RLock()
         self.sid, self.language, self.target = None, "en", "zh"
@@ -117,12 +117,13 @@ class TranslationService:
         self.closed = False
         context = mp.get_context("spawn")
         self.commands, self.events = context.Queue(), context.Queue()
-        self.process = context.Process(target=_worker, args=(self.commands, self.events, str(model_dir), str(sdk_dir)))
+        self.process = context.Process(target=_worker, args=(self.commands, self.events, str(model_dir), str(sdk_dir), str(library) if library else None))
         self.process.start()
         try:
             event = self.events.get(timeout=120)
             if event["kind"] != "ready":
                 raise RuntimeError(event.get("error", "Translation worker failed to load"))
+            self.info = event.get("info", {})
         except BaseException:
             self.process.terminate()
             self.process.join(10)

@@ -46,6 +46,7 @@ from translation_service import TranslationService
 
 MODELS = None                         # resolved after argument parsing; --help needs no installed package
 TRANSLATION_MODELS = None
+TRANSLATION_LIBRARY = None
 
 MEDIA = f"{HERE}/media"
 UPLOADS = f"{MEDIA}/uploads"
@@ -99,7 +100,8 @@ class Session:
         self.lock = threading.Lock()
         self.subs = []
         self.translations = TranslationService(TRANSLATION_MODELS,
-                                              os.path.join(ROOT, "components/translation/sdk/python"), self.broadcast)
+                                              os.path.join(ROOT, "components/translation/sdk/python"), self.broadcast,
+                                              library=TRANSLATION_LIBRARY)
         atexit.register(self.translations.close)
         self.worker_sid = None
         self.segmenter = None
@@ -159,7 +161,7 @@ class Session:
         if a is None:
             return {"type": "info", "state": self.state}
         roll = a.info["roll_s"]
-        return {"type": "info", "sid": self.sid, "paragraph_options": dict(self.paragraph_options), "translation_target": self.target, "translation_enabled": self.translations.enabled, "translation_epoch": self.translations.epoch, "translation_active": self.translations.worker_active, "languages": LANGUAGES, "source_languages": list(SOURCE_LANGUAGES), "clocks": list(self.clocks), "clock_errors": dict(self.clock_errors), "lang": self.lang, "clock_ms": round(self.clock_ms),
+        return {"type": "info", "sid": self.sid, "paragraph_options": dict(self.paragraph_options), "translation_sdk": self.translations.info, "translation_target": self.target, "translation_enabled": self.translations.enabled, "translation_epoch": self.translations.epoch, "translation_active": self.translations.worker_active, "languages": LANGUAGES, "source_languages": list(SOURCE_LANGUAGES), "clocks": list(self.clocks), "clock_errors": dict(self.clock_errors), "lang": self.lang, "clock_ms": round(self.clock_ms),
                 "delay_ms": round(self.clock_ms * a.info["num_delay_tokens"]),
                 "max_audio_s": None if roll else round((MAX_POS - STOP_MARGIN) * self.clock_ms / 1000, 1),
                 "roll_s": round(roll, 1) if roll else None,
@@ -737,14 +739,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global S, MODELS, TRANSLATION_MODELS
+    global S, MODELS, TRANSLATION_MODELS, TRANSLATION_LIBRARY
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--models", default=os.environ.get("LT01_MODELS"),
                     help="package root containing manifest.json; default: discover this demo models directory")
     ap.add_argument("--translation-models", default=os.environ.get("LIVE_TRANSLATE_MODELS"),
                     help="Translation package root containing manifest.json")
+    ap.add_argument("--translation-library", help="Explicit native translation library for SDK validation; default: bundled SDK")
     a = ap.parse_args()
+    if a.translation_library:
+        TRANSLATION_LIBRARY = str(Path(a.translation_library).resolve(strict=True))
     sys.path.insert(0, os.path.join(ROOT, "components/translation/sdk/python"))
     from multilingual_translation import TranslationError
     from model_paths import resolve_packages

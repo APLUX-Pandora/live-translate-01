@@ -36,3 +36,8 @@ These checks establish playback, inference completion and rendering behavior, no
 - Some repeated spoken phrases were simplified in Spanish.
 
 The complete source is submitted, but a nonempty completed result does not prove that every semantic detail is translated accurately. Terminology normalization and a better context policy are possible future quality improvements; they were not introduced during this compatibility test.
+
+
+## Subsequent quality review
+
+All 602 final display pairs were subsequently inspected and material errors were found. The functional PASS above must not be treated as linguistic acceptance. Controlled replay confirmed contributions from the old SDK sampling override, independent phrase boundaries and source terminology; residual model/deployed-path errors remain. See [translation quality and causal checks](TRANSLATION_QUALITY.md). The new sampler was not used in these historical 70-minute runs.
