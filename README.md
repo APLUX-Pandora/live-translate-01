@@ -17,7 +17,18 @@ The application reuses existing transcription and translation packages from
 [Multilingual Translation 01](https://huggingface.co/APLUX-Pandora/multilingual-translation-01).
 No separate model repository is required. Repository access is required to download
 the current model packages. Supply an audio/video file you are authorized to use;
-this distribution does not bundle demonstration recordings.
+input lecture files are not bundled with the application.
+
+## One-minute demonstration
+
+[![Watch the one-minute demonstration](docs/poster.png)](docs/demo.mp4)
+
+[Higher-quality recording](docs/demo-original.mp4)
+
+English speech is transcribed and translated into Chinese in real time. The
+recording uses Lorna Mitchell's FOSDEM 2025 talk, *Beyond the README*, under
+CC BY 2.0 BE. It includes an attribution footer and the final translation drain.
+See [media attribution](docs/MEDIA_ATTRIBUTION.md) for source, license and editing details.
 
 ## Supported hardware
 

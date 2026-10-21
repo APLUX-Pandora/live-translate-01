@@ -16,5 +16,9 @@ assets remain in their original repositories with their accompanying terms.
 AidLite, AidGen, Qualcomm QNN/QAIRT and operating-system runtimes are external
 platform components and are not distributed in this application tree.
 
-No video/audio recordings are bundled. APLUX/Pandora marks are brand assets.
+Input lecture files are not bundled. APLUX/Pandora marks are brand assets.
 No speaker, media producer or third-party project endorsement is implied.
+
+Demo recording: Lorna Mitchell, Beyond the README, FOSDEM 2025, CC BY 2.0 BE.
+See docs/MEDIA_ATTRIBUTION.md for source/license links and excerpt/edit details.
+Original lecture rights are independent of the application and SDK licenses.
