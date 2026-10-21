@@ -56,11 +56,12 @@
   details.settings input[type=number], details.settings select { width: 100%; padding: 4px 8px; }
   details.settings .hint { grid-column: 1 / -1; }
   .right { grid-area: text; display: flex; flex-direction: column; }
-  .right .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex: none; }
+  .right .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; flex: none; }
   .right h2 { margin: 0 auto 0 0; font-size: 13px; font-weight: 500; color: var(--muted); }
   .right .bar button { padding: 3px 10px; font-size: 12px; }
-  #transcript { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; font-size: 19px; line-height: 1.65; white-space: pre-wrap; }
-  #transcript::-webkit-scrollbar { display: none; }
+  #transcript { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; font-size: 19px; line-height: 1.65; white-space: pre-wrap; }
+  #transcript::-webkit-scrollbar { width: 5px; }
+  #transcript::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
   .transcript-paragraph .stamp { color: var(--accent); font-size: 13px; cursor: pointer; margin-right: 6px; font-variant-numeric: tabular-nums; }
   #transcript .stamp:hover { text-decoration: underline; }
   #transcript .sep { display: block; color: var(--muted); font-size: 13px; text-align: center; margin: 4px 0; }
@@ -119,15 +120,29 @@
     .metrics { height: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
-  #transcript { flex: 0 1 34%; min-height: 80px; padding-bottom: 12px; }
-  .translation-bar { display: flex; align-items: center; gap: 8px; padding-top: 12px; margin-top: 8px; border-top: 1px solid var(--line); flex: none; }
-  .translation-bar h2 { margin: 0 auto 0 0; color: var(--muted); font-size: 13px; font-weight: 500; }
+  #transcript { flex: 1; min-height: 0; overflow-anchor: none; white-space: normal; }
+  .translation-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; flex: none; }
+  .translation-bar h2 { margin: 0 auto 0 0; font-size: 12px; }
   #translationState { color: var(--muted); font-size: 11px; }
   #copyTranslation { font-size: 11px; padding: 3px 8px; }
-  #translationList { flex: 1; min-height: 100px; overflow-y: auto; margin-top: 8px; }
-  .transcript-paragraph { margin: 0 0 1em; font-size: 19px; line-height: 1.65; white-space: pre-wrap; }
-  .translation-row .target { font-size: inherit; }
-  .translation-row[data-status="chunk"] .target::after { content: " ▍"; color: var(--fresh); }
+  .paragraph-pair { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 8px 12px; padding: 12px 0 16px; border-bottom: 1px solid var(--line); }
+  .paragraph-pair:first-child { padding-top: 0; }
+  .pair-heading { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+  .pair-heading .stamp { margin: 0; }
+  .pair-label { color: var(--muted); font-size: 11px; line-height: 1.4; font-weight: 500; }
+  .paragraph-text, .translation-row { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .paragraph-text { font-size: 16px; line-height: 1.6; }
+  .original-row, .translation-row { min-width: 0; }
+  .original-row .pair-label { display: block; margin-bottom: 3px; }
+  .translation-row { padding: 0 0 0 10px; border-left: 2px solid var(--accent); background: #ffffff04; border-radius: 0 5px 5px 0; }
+  .translation-row .pair-label { display: block; margin-bottom: 3px; }
+  .translation-row .target { font-size: 18px; line-height: 1.65; }
+  .paragraph-pair[data-status="waiting"] .target { color: var(--muted); font-size: 14px; }
+  @media (max-width: 600px) {
+    .paragraph-pair { grid-template-columns: minmax(0, 1fr); }
+    .translation-row { padding: 8px 10px; }
+  }
+  .paragraph-pair[data-status="chunk"] .target::after { content: " ▍"; color: var(--fresh); }
 
 </style>
 </head>
@@ -190,12 +205,11 @@
     </div>
   </section>
   <section class="panel right">
-    <div class="bar"><h2>Transcript</h2>
+    <div class="bar"><h2>Transcript &amp; translation</h2>
       <button id="copyBtn">Copy original</button><button id="dlBtn">Export original</button><button id="clearBtn">Clear display</button></div>
-    <div id="transcript"><span class="cursor"></span></div>
-    <div id="notice"></div>
     <div class="translation-bar"><h2 id="translationTarget">Translation</h2><span id="translationState" role="status">Waiting for transcript</span><button id="copyTranslation">Copy translation</button></div>
-    <div id="translationList" aria-label="Translated paragraphs" aria-live="polite" aria-relevant="additions text"></div>
+    <div id="transcript" tabindex="0" role="log" aria-label="Original and translated paragraphs" aria-live="polite" aria-relevant="additions text"></div>
+    <div id="notice"></div>
   </section>
   <section class="metrics">
     <div class="tiles">
@@ -222,7 +236,7 @@
 </main>
 <div id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
  <div class="doc">
-<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
+<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. Each paragraph pairs its original text and translation in the same row with a shared timestamp and scroll position. Narrow screens stack each pair vertically. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
   <button class="close" id="helpClose" aria-label="Close">×</button>
   <h2 id="helpTitle">Live Translate 01 · web demo · user manual</h2>
   <p class="muted">Everything runs on the board (NPU for the models, CPU for audio front end, VAD and decoding). This page is served by the
@@ -240,7 +254,7 @@
   <h3>2. Screen layout</h3>
   <ul>
     <li><b>Top left</b> – video player and the controls.</li>
-    <li><b>Top right</b> – live transcript. The newest words appear in light blue and settle to white.</li>
+    <li><b>Right</b> – paired paragraphs: original text beside its translation (stacked on narrow screens), sharing one timestamp and scroll position. New original words appear in light blue and settle to white.</li>
     <li><b>Bottom bar</b> – live metrics: run statistics, Silero VAD, board DRAM, RTF and end of turn.</li>
     <li><b>Header</b> – current audio clock and context mode, model load time, run state (Ready / Transcribing / Done / Stopped).</li>
   </ul>
@@ -408,8 +422,11 @@ function setState(s, label) {
   const el = $("state"); el.className = "chip " + s; el.textContent = label;
   updateLanguageAvailability();
 }
-function resetTranscript(keepText) {
-  if (!keepText) { text = ""; sourceParagraphs.clear(); tr.replaceChildren(); }
+function resetTranscript(keepText, preservePairs = false) {
+  if (!keepText) {
+    text = ""; sourceParagraphs.clear();
+    if (!preservePairs) { translationParagraphs.clear(); tr.replaceChildren(); }
+  }
   needStamp = true;
   $("notice").style.display = "none";
   ["sAudio", "sFirst", "sStep", "sWords", "vadState", "vadGated"].forEach(k => $(k).textContent = "-");
@@ -422,19 +439,15 @@ const sourceParagraphs = new Map();
 function renderSource(part) {
   let row = sourceParagraphs.get(part.id);
   if (row && part.revision <= row.revision) return;
+  const follow = tr.scrollHeight - tr.scrollTop - tr.clientHeight < 100;
+  const pair = translationParagraph(part);
   if (!row) {
-    const element = document.createElement("div"); element.className = "transcript-paragraph";
-    element.dataset.paragraphId = part.id;
-    const stamp = document.createElement("span"); stamp.className = "stamp";
-    stamp.textContent = `[${fmtT(part.start_s)}] `; stamp.dataset.t = part.start_s; stamp.title = "Play from here";
-    const content = document.createElement("span"); content.className = "paragraph-text fresh";
-    element.append(stamp, content); tr.append(element);
-    row = {element, content}; sourceParagraphs.set(part.id, row);
+    row = {element: pair.element, content: pair.source}; sourceParagraphs.set(part.id, row);
   }
   row.revision = part.revision; row.text = part.text; row.start_s = part.start_s;
   row.content.textContent = part.text.trim();
   text = [...sourceParagraphs.values()].map(p => `[${fmtT(p.start_s)}] ${p.text.trim()}`).join("\n\n");
-  tr.scrollTop = tr.scrollHeight;
+  if (follow) tr.scrollTop = tr.scrollHeight;
 }
 function paragraphOptions() { return {enabled: $("ePara").checked, horizon: eotHz[eotSel], threshold: eotThr()}; }
 function applyParagraphOptions(options) {
@@ -719,7 +732,7 @@ function handleEvent(ev) {
   } else if (ev.type === "paragraph_options") {
     applyParagraphOptions(ev);
   } else if (ev.type === "translation_snapshot") {
-    resetTranscript(false);
+    resetTranscript(false, true);
     for (const part of ev.paragraphs || []) renderSource(part);
   } else if (ev.type === "reset" || ev.type === "translation_reset") {
     if (ev.target) refreshTargetChoices($("sourceSel").value, ev.target);

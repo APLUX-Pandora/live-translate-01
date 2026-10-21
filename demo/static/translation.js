@@ -23,7 +23,7 @@ function resetTranslation(sid, target) {
   translatedRows.clear();
   translationParagraphs.clear();
   updateTranslationPending(0);
-  document.getElementById("translationList").replaceChildren();
+  document.getElementById("transcript").replaceChildren();
   document.getElementById("translationTarget").textContent = translationLabel(target);
   document.getElementById("translationState").textContent = "Waiting for transcript";
 }
@@ -33,16 +33,30 @@ function translationParagraph(data) {
   let row = translationParagraphs.get(id);
   if (!row) {
     const element = document.createElement("article");
-    element.className = "translation-row transcript-paragraph";
+    element.className = "paragraph-pair transcript-paragraph";
     element.dataset.paragraphId = id;
-    const stamp = document.createElement("span"); stamp.className = "stamp";
+    const heading = document.createElement("div"); heading.className = "pair-heading";
+    const stamp = document.createElement("span"); stamp.className = "stamp"; stamp.title = "Play from here";
+    const label = document.createElement("span"); label.className = "pair-label"; label.textContent = "Original";
+    heading.append(stamp);
+    const original = document.createElement("div"); original.className = "original-row";
+    const source = document.createElement("div"); source.className = "paragraph-text fresh"; source.dir = "auto";
+    original.append(label, source);
+    const translation = document.createElement("div"); translation.className = "translation-row";
+    const targetLabel = document.createElement("span"); targetLabel.className = "pair-label"; targetLabel.textContent = translationLabel(translationTargetCode);
     const target = document.createElement("span"); target.className = "target"; target.dir = "auto"; target.lang = translationTargetCode;
-    element.append(stamp, target);
-    document.getElementById("translationList").append(element);
-    row = {element, stamp, target, text: "", start_s: data.start_s};
+    target.textContent = "Waiting for translation…";
+    translation.append(targetLabel, target);
+    element.append(heading, original, translation);
+    document.getElementById("transcript").append(element);
+    row = {element, stamp, source, target, text: "", start_s: data.start_s};
     translationParagraphs.set(id, row);
   }
-  if (data.start_s !== undefined) row.start_s = data.start_s;
+  if (data.start_s !== undefined) {
+    row.start_s = data.start_s;
+    row.stamp.textContent = `[${fmtT(data.start_s)}] `;
+    row.stamp.dataset.t = data.start_s;
+  }
   return row;
 }
 function translationRow(id, data) {
@@ -70,7 +84,7 @@ function renderTranslation() {
   if (translationFrame !== null) return;
   translationFrame = requestAnimationFrame(() => {
     translationFrame = null;
-    const list = document.getElementById("translationList");
+    const list = document.getElementById("transcript");
     const follow = list.scrollHeight-list.scrollTop-list.clientHeight < 100;
     for (const [id, row] of translationParagraphs) {
       row.text = paragraphTranslation(id);
@@ -78,7 +92,7 @@ function renderTranslation() {
       const active = jobs.some(job => ["queued", "started", "chunk"].includes(job.status));
       row.stamp.textContent = row.start_s === undefined ? "" : `[${fmtT(row.start_s)}] `;
       row.target.textContent = row.text || "Waiting for translation…";
-      row.element.dataset.status = active ? "chunk" : "done";
+      row.element.dataset.status = active ? "chunk" : row.text ? "done" : "waiting";
       row.element.title = jobs.filter(job => job.error).map(job => job.error).join("; ");
     }
     if (follow) list.scrollTop = list.scrollHeight;
