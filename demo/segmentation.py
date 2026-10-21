@@ -13,10 +13,11 @@ class Segment:
 
 
 class Segmenter:
-    def __init__(self, language, delay_tokens=3, soft_wait_s=3.5, hard_wait_s=12.0):
+    def __init__(self, language, delay_tokens=3, soft_wait_s=3.5, hard_wait_s=None):
         self.language = language
         self.delay_tokens = delay_tokens
-        self.soft_wait_s, self.hard_wait_s = soft_wait_s, hard_wait_s
+        self.soft_wait_s = soft_wait_s
+        self.hard_wait_s = hard_wait_s if hard_wait_s is not None else (24.0 if language == "en" else 12.0)
         self.pending, self.times = "", []
         self.count = self.serial = 0
         self.last_text_s = None
@@ -34,16 +35,51 @@ class Segmenter:
                          "and", "or", "but", "because", "if", "when", "while", "that", "which", "whose",
                          "this", "these", "those", "my", "your", "our", "their", "its", "just", "very",
                          "first", "second", "third", "another", "each", "every", "such"}
-            return words[-1].lower() not in open_ends and (not pause or len(words) >= 4)
+            terminal = bool(re.search(r"[.!?][\s”’\"')\]}]*$", text))
+            # A demonstrative can be an object: "This is useful for that."
+            if terminal:
+                open_ends -= {"that", "this", "these", "those"}
+            complete = words[-1].lower() not in open_ends
+            if terminal and re.search(
+                    r"\b(?:if|when|while|because|though|unless|until|that)\s+"
+                    r"(?:i|you|we|they|he|she|it)\s+"
+                    r"(?:have|has|had|are|is|was|were|can|could|will|would|should|must|do|does|did)"
+                    r"\s*[.!?]$", text.strip(), re.I):
+                complete = False
+            if pause:
+                # Subject pronouns and unfinished modifier phrases need their continuation.
+                complete = complete and words[-1].lower() not in {"i", "we", "they", "he", "she"}
+                modifier_tail = re.search(
+                    r"\b(?:a|an|the|my|your|our|their|its|another|some)\s+"
+                    r"(?:(?:very|more|less)\s+)?"
+                    r"(?:separate|original|specific|particular|different|single|additional|next|other|new|old)"
+                    r"\s*$", text, re.I)
+                complete = complete and not modifier_tail and not self._dependent_construction(text)
+            return bool(complete and (not pause or len(words) >= 4))
         return not pause or len(re.findall(r"[\w]", text)) >= 8
 
-    def _useful_clause(self, text, early=True):
-        # Earlier submission needs enough context; never commit a short lead-in.
+    @staticmethod
+    def _dependent_construction(text):
+        # Be conservative around subordinate clauses and paired comparisons.
+        return bool(re.search(
+            r"\b(?:if|when|while|because|although|though|unless|until|whereas|whether|whose|which|who|what|how)\b"
+            r"|\bby\s+the\s+time\b|\bas\s+(?:much|many|little|few|long|short|good|bad)\b"
+            r"|\b(?:more|less|better|worse)\b[^.!?]*\bthan\b", text, re.I))
+
+    def _useful_clause(self, text, remainder="", early=True):
         units = re.findall(r"[A-Za-z]+(?:['’][A-Za-z]+)?|\d+", text) if self.language == "en" else re.findall(r"[\w]", text)
-        if self.language == "en" and re.search(
-                r"\b(?:what|who|which|where|how)\b[^.!?]*\b(?:is|are|was|were|does|do|did|can|could|would|will|should)\s*[,，:：]$", text, re.I):
-            return False
         minimum = (8 if early else 4) if self.language == "en" else (12 if early else 6)
+        if self.language == "en":
+            # A comma alone does not close a translation unit. Wait until the next
+            # coordinate clause has its own explicit subject and predicate lead-in.
+            continuation = re.match(
+                r"\s*(?:and|but|so|yet)\s+(?:i|we|you|they|he|she|it|this|that|there)"
+                r"\s+(?:[A-Za-z]+(?:['’][A-Za-z]+)?)\b", remainder, re.I)
+            predicate = re.search(
+                r"\b(?:am|is|are|was|were|have|has|had|do|does|did|can|could|will|would|should|must|may|might)\b"
+                r"|\b(?:i|we|you|they|he|she|it)\s+[A-Za-z]+(?:['’][A-Za-z]+)?\b", text, re.I)
+            if not continuation or not predicate or self._dependent_construction(text):
+                return False
         return len(units) >= minimum and self._complete_phrase(text)
 
     def _boundaries(self, clauses=False):
@@ -113,14 +149,16 @@ class Segmenter:
             return output
         quiet = audio_s-(self.last_text_s if self.last_text_s is not None else audio_s)
         complete = self._complete_phrase(self.pending, pause=True)
-        if quiet >= 0.48 and self.semantic_ready and self.latest_eot >= 0.65 and complete:
+        semantic_quiet = 1.2 if self.language == "en" else 0.48
+        speech_quiet = 1.6 if self.language == "en" else 0.64
+        if quiet >= semantic_quiet and self.semantic_ready and self.latest_eot >= 0.65 and complete:
             return output+self._commit(len(self.pending), "semantic_pause")
-        if quiet >= 0.64 and silence_s >= 0.8 and complete:
+        if quiet >= speech_quiet and silence_s >= max(0.8, speech_quiet) and complete:
             return output+self._commit(len(self.pending), "speech_pause")
         age = audio_s-self.times[0]
-        max_chars = 96 if self.language == "zh" else 256
+        max_chars = 96 if self.language == "zh" else 512
         if age >= self.soft_wait_s or len(self.pending) >= max_chars:
-            clauses = [i for i in self._boundaries(clauses=True) if self._useful_clause(self.pending[:i], early=age < 6.0 and len(self.pending) < max_chars)]
+            clauses = [i for i in self._boundaries(clauses=True) if self._useful_clause(self.pending[:i], self.pending[i:], early=age < 6.0 and len(self.pending) < max_chars)]
             if clauses:
                 return output+self._commit(clauses[-1], "clause")
         if age >= self.hard_wait_s or len(self.pending) >= max_chars:

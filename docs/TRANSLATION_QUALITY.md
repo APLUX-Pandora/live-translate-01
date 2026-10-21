@@ -38,4 +38,4 @@ The 0.1.1 native SDK is a signed **candidate**, built from a clean candidate sou
 
 The stripped candidate also passed a direct native C ABI smoke check and a 128.3-second actual browser English-to-Korean run: 23/23 translation tasks completed, no transport errors, no source loss, and the Wireshark sentence no longer contained Chinese text. All 78 SDK and 48 application unit tests passed. This is targeted regression evidence, not a repeat of the seven-language 70-minute test.
 
-The remaining quality work is to preserve comparisons/unfinished syntax across phrase boundaries and introduce context-sensitive technical-name handling. Those policy changes are separate from this sampler correction and need their own quality/latency checks.
+The subsequent [translation-boundary correction](TRANSLATION_BOUNDARIES.md) preserves comparisons and unfinished syntax more conservatively, with its own quality and latency evidence. Context-sensitive technical-name handling remains unresolved; the boundary checks do not imply that all seven languages now meet linguistic acceptance.

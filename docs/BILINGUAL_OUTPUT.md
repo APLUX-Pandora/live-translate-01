@@ -7,3 +7,5 @@ Choose the source and target languages before starting. Starting or seeking enab
 Use Copy original, Export original or Copy translation to retrieve text. Arabic translations use automatic right-to-left direction independently of the English source.
 
 For an explicitly selected native SDK validation build, start the server with `bash demo/run.sh --translation-library /absolute/path/to/libmultilingual_translation_01.so`. This is an opt-in diagnostic override; it does not replace or re-sign the bundled released SDK. The `/api/videos` response exposes `translation_sdk`, including any effective sampling properties reported by that library.
+
+English translation input now favors complete sentences and conservatively joins dependent constructions across short pauses. Self-contained coordinate clauses may still appear early. Long sentences can delay the first translated text while the original continues; see [translation boundaries](TRANSLATION_BOUNDARIES.md) for limits and measured scope.

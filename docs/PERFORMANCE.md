@@ -1,4 +1,6 @@
-# Application performance notes
+# Historical application performance notes
+
+These measurements describe the earlier aggressive-clause policy and SDK 0.1.0. The active English boundary policy now prioritizes sentence context; see [translation boundaries](TRANSLATION_BOUNDARIES.md). Do not apply the latency improvement below to the revised policy. The incremental renderer remains in use.
 
 This application patch keeps the existing 160 ms transcription package, native SDKs and model files. Each original sentence still owns its streamed translation; ASR paragraph breaks are unchanged.
 
