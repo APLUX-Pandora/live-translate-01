@@ -1,4 +1,4 @@
-/* Display paragraphs follow the authoritative transcript; jobs remain internal. */
+/* Sentence pairs follow translation units inside the original ASR paragraphs. */
 let translationSid = null;
 let translationLanguages = {zh:"Chinese", en:"English", ja:"Japanese", ko:"Korean", fr:"French", de:"German", es:"Spanish", ar:"Arabic", th:"Thai"};
 function translationLabel(code) { return `${translationLanguages[code] || ""} translation`.trim(); }
@@ -28,6 +28,15 @@ function resetTranslation(sid, target) {
   document.getElementById("translationState").textContent = "Waiting for transcript";
 }
 
+function makeSentencePair(id) {
+  const element = document.createElement("div"); element.className = "sentence-pair";
+  if (id !== undefined) element.dataset.sentenceId = id;
+  const source = document.createElement("div"); source.className = "paragraph-text fresh"; source.dir = "auto";
+  const target = document.createElement("div"); target.className = "target"; target.dir = "auto"; target.lang = translationTargetCode;
+  element.dataset.translated = "false";
+  element.append(source, target);
+  return {element, source, target};
+}
 function translationParagraph(data) {
   const id = data.paragraph_id || data.id;
   let row = translationParagraphs.get(id);
@@ -38,21 +47,16 @@ function translationParagraph(data) {
     element.dataset.translated = "false";
     const heading = document.createElement("div"); heading.className = "pair-heading";
     const stamp = document.createElement("span"); stamp.className = "stamp"; stamp.title = "Play from here";
-    const label = document.createElement("span"); label.className = "pair-label"; label.textContent = "Original";
     heading.append(stamp);
-    const original = document.createElement("div"); original.className = "original-row";
-    const source = document.createElement("div"); source.className = "paragraph-text fresh"; source.dir = "auto";
-    original.append(label, source);
-    const translation = document.createElement("div"); translation.className = "translation-row";
-    const targetLabel = document.createElement("span"); targetLabel.className = "pair-label"; targetLabel.textContent = translationLabel(translationTargetCode);
-    const target = document.createElement("span"); target.className = "target"; target.dir = "auto"; target.lang = translationTargetCode;
-    target.textContent = "Waiting for translation…";
-    translation.append(targetLabel, target);
-    element.append(heading, original, translation);
+    const body = document.createElement("div"); body.className = "sentence-list";
+    const draft = makeSentencePair(); draft.element.dataset.pending = "true";
+    body.append(draft.element);
+    element.append(heading, body);
     document.getElementById("transcript").append(element);
-    row = {element, stamp, source, target, text: "", start_s: data.start_s};
+    row = {element, stamp, body, draft, units: new Map(), sourceText: "", start_s: data.start_s};
     translationParagraphs.set(id, row);
   }
+  if (data.text !== undefined) row.sourceText = data.text;
   if (data.start_s !== undefined) {
     row.start_s = data.start_s;
     row.stamp.textContent = `[${fmtT(data.start_s)}] `;
@@ -65,22 +69,46 @@ function translationRow(id, data) {
   if (data.source_text !== undefined) row.sourceText = data.source_text;
   if (data.translation !== undefined) row.text = data.translation;
   if (data.status) row.status = data.status;
+  if (data.reason !== undefined) row.reason = data.reason;
   if (data.revision !== undefined) row.revision = data.revision;
   row.paragraph_id = data.paragraph_id || row.paragraph_id || 1;
   translatedRows.set(id, row);
   translationParagraph({paragraph_id: row.paragraph_id});
   return row;
 }
-function paragraphTranslation(id) {
+function joinTranslationJobs(jobs) {
   let text = "";
-  for (const job of translatedRows.values()) {
-    if (job.paragraph_id !== id || !job.text) continue;
+  for (const job of jobs) {
+    if (!job.text) continue;
     const piece = job.text.replace(/\s*\n+\s*/g, ["zh", "ja"].includes(translationTargetCode) ? "" : " ").trim();
     if (text && piece && !["zh", "ja"].includes(translationTargetCode) && !/^[,.;:!?)]/.test(piece)) text += " ";
     text += piece;
   }
   return text;
 }
+function paragraphTranslation(id) {
+  return joinTranslationJobs([...translatedRows.values()].filter(job => job.paragraph_id === id));
+}
+function closesSourceSentence(job) {
+  if (["sentence", "semantic_pause", "speech_pause", "finish"].includes(job.reason)) return true;
+  const text = (job.sourceText || "").trim().replace(/[”’"')\]}]+$/u, "");
+  if (/[。！？!?；;]$/u.test(text)) return true;
+  return /\.$/.test(text) && !/(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|etc)|\b[A-Za-z])\.$/i.test(text);
+}
+function sentenceGroups(jobs) {
+  const groups = [];
+  let group = null;
+  for (const job of jobs) {
+    if (!group) { group = {id: job.id, jobs: [], closed: false}; groups.push(group); }
+    group.jobs.push(job);
+    // Clause and latency-limit jobs are parts of the same source sentence.
+    if (closesSourceSentence(job)) {
+      group.closed = true; group = null;
+    }
+  }
+  return groups;
+}
+
 function renderTranslation() {
   if (translationFrame !== null) return;
   translationFrame = requestAnimationFrame(() => {
@@ -88,14 +116,28 @@ function renderTranslation() {
     const list = document.getElementById("transcript");
     const follow = list.scrollHeight-list.scrollTop-list.clientHeight < 100;
     for (const [id, row] of translationParagraphs) {
-      row.text = paragraphTranslation(id);
       const jobs = [...translatedRows.values()].filter(job => job.paragraph_id === id);
-      const active = jobs.some(job => ["queued", "started", "chunk"].includes(job.status));
+      const groups = sentenceGroups(jobs);
+      const committed = jobs.map(job => job.sourceText || "").join("");
+      const tail = row.sourceText.startsWith(committed) ? row.sourceText.slice(committed.length) : "";
+      for (const group of groups) {
+        let unit = row.units.get(group.id);
+        if (!unit) {
+          unit = makeSentencePair(group.id);
+          row.units.set(group.id, unit);
+          row.body.insertBefore(unit.element, row.draft.element);
+        }
+        const source = group.jobs.map(job => job.sourceText || "").join("");
+        unit.source.textContent = (source + (group.closed ? "" : tail)).trim();
+        unit.target.textContent = joinTranslationJobs(group.jobs);
+        unit.element.dataset.translated = String(Boolean(unit.target.textContent));
+        unit.element.dataset.status = group.jobs.some(job => ["queued", "started", "chunk"].includes(job.status)) ? "chunk" : "done";
+        unit.element.title = group.jobs.filter(job => job.error).map(job => job.error).join("; ");
+      }
+      const draft = groups.length && !groups[groups.length-1].closed ? "" : tail;
+      row.draft.source.textContent = draft.trim();
+      row.draft.element.hidden = !draft.trim();
       row.stamp.textContent = row.start_s === undefined ? "" : `[${fmtT(row.start_s)}] `;
-      row.target.textContent = row.text || "Waiting for translation…";
-      row.element.dataset.translated = String(Boolean(row.text));
-      row.element.dataset.status = active ? "chunk" : row.text ? "done" : "waiting";
-      row.element.title = jobs.filter(job => job.error).map(job => job.error).join("; ");
     }
     if (follow) list.scrollTop = list.scrollHeight;
   });

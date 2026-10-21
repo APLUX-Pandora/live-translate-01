@@ -128,12 +128,11 @@
   .paragraph-pair { margin: 0 0 20px; }
   .pair-heading { margin-bottom: 2px; }
   .pair-heading .stamp { margin: 0; }
-  .pair-label { display: none; }
-  .paragraph-text, .translation-row { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .paragraph-text, .translation-row .target { font-size: 18px; line-height: 1.65; }
-  .translation-row { margin-top: 4px; color: #a7c7f5; }
-  .paragraph-pair[data-translated="false"] .translation-row { display: none; }
-  .paragraph-pair[data-status="chunk"] .target::after { content: " ▍"; color: var(--fresh); }
+  .sentence-pair { margin-bottom: 12px; }
+  .paragraph-text, .sentence-pair .target { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 18px; line-height: 1.65; }
+  .sentence-pair .target { margin-top: 4px; color: #a7c7f5; }
+  .sentence-pair[data-translated="false"] .target { display: none; }
+  .sentence-pair[data-status="chunk"] .target::after { content: " ▍"; color: var(--fresh); }
 
 </style>
 </head>
@@ -227,7 +226,7 @@
 </main>
 <div id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
  <div class="doc">
-<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. One text area shows each original paragraph first, followed immediately by its streamed translation. The next original/translation pair follows the same transcript paragraph breaks. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
+<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. One text area alternates each source sentence with its own streamed translation. Live unfinished source text remains at the end until its translation unit is submitted. Original ASR paragraph breaks remain unchanged. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
   <button class="close" id="helpClose" aria-label="Close">×</button>
   <h2 id="helpTitle">Live Translate 01 · web demo · user manual</h2>
   <p class="muted">Everything runs on the board (NPU for the models, CPU for audio front end, VAD and decoding). This page is served by the
@@ -245,7 +244,7 @@
   <h3>2. Screen layout</h3>
   <ul>
     <li><b>Top left</b> – video player and the controls.</li>
-    <li><b>Right</b> – a bilingual text area: each original paragraph followed by its translation, sharing one timestamp and scroll position. New original words appear in light blue and settle to white.</li>
+    <li><b>Right</b> – a bilingual text area: each original sentence followed immediately by its own translation. Original paragraph breaks and timestamps remain unchanged. New original words appear in light blue and settle to white.</li>
     <li><b>Bottom bar</b> – live metrics: run statistics, Silero VAD, board DRAM, RTF and end of turn.</li>
     <li><b>Header</b> – current audio clock and context mode, model load time, run state (Ready / Transcribing / Done / Stopped).</li>
   </ul>
@@ -433,10 +432,10 @@ function renderSource(part) {
   const follow = tr.scrollHeight - tr.scrollTop - tr.clientHeight < 100;
   const pair = translationParagraph(part);
   if (!row) {
-    row = {element: pair.element, content: pair.source}; sourceParagraphs.set(part.id, row);
+    row = {element: pair.element}; sourceParagraphs.set(part.id, row);
   }
   row.revision = part.revision; row.text = part.text; row.start_s = part.start_s;
-  row.content.textContent = part.text.trim();
+  renderTranslation();
   text = [...sourceParagraphs.values()].map(p => `[${fmtT(p.start_s)}] ${p.text.trim()}`).join("\n\n");
   if (follow) tr.scrollTop = tr.scrollHeight;
 }
