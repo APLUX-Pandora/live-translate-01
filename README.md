@@ -21,9 +21,9 @@ input lecture files are not bundled with the application.
 
 ## One-minute demonstration
 
-[![Watch the one-minute demonstration](docs/poster.png)](docs/demo.mp4)
+https://github.com/user-attachments/assets/7963e0c7-7ba6-4f3b-80b8-54fe48986a37
 
-[Higher-quality recording](docs/demo-original.mp4)
+[Download the recording](docs/demo.mp4) · [Higher-quality recording](docs/demo-original.mp4)
 
 English speech is transcribed and translated into Chinese in real time. The
 recording uses Lorna Mitchell's FOSDEM 2025 talk, *Beyond the README*, under

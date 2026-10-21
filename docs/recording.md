@@ -10,5 +10,6 @@
 - Input lecture media and model weights are not included in this repository.
 - This recording is demonstration material, not a new benchmark or SDK release.
 
-The poster links to the repository video preview. Download demo-original.mp4 for
-the higher-quality file. No Pandora production deployment is included.
+The GitHub README embeds a video attachment. Both compact and higher-quality
+recordings are also stored in the repository; use demo-original.mp4 for the
+higher-quality file. No Pandora production deployment is included.
