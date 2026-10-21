@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+models/
+demo/media/uploads/
+evidence/
+*.log
+*.pid
+
+demo/media/
+.venv-*/

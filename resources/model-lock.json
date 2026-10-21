@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "hardware": "QCS8550",
+  "asr_clock_ms": 160,
+  "components": {
+    "asr": {
+      "repository": "APLUX-Pandora/live-transcribe-01",
+      "revision": "7c7f9bf118e19f596c611202bd065c1af0997cb9",
+      "remote_prefix": "qnn248_qcs8550",
+      "local_directory": "asr/qnn248_qcs8550",
+      "private": true,
+      "files": {
+        "160ms/decoder/part_1_of_2.serialized.bin.aidem": "6aee64bb155d136c762dffd11e0c4aea88a1cda6d8cb1d898820742692776622",
+        "160ms/decoder/part_2_of_2.serialized.bin.aidem": "d2aa39725265f84049a0f53f73b5ccf744bf3f7fba303290e6836992430d8931",
+        "160ms/decoder/prefix_kv_en.bin": "841ca20b8f9ef3244c54b6f8f93769d33870390e951b91374564190e74d106a4",
+        "160ms/decoder/prefix_kv_zh.bin": "703a47e083d729044d1799fb4ba659d37afa7205e208682ec220472cc6585e1d",
+        "160ms/encoder/adapter.serialized.bin.aidem": "0941a7949d0c9aba8fde91be3dd63dbac06d0f71149aff1a2724ebab7c0b6376",
+        "160ms/encoder/encoder.serialized.bin.aidem": "6dadb19c2dec3cc26d8bd0f30ae6687f42a6389eed591bb8b53827a12421f98d",
+        "160ms/encoder/prefix_kv.bin": "56d4ce2d7c9b0b40d41bb7fbfda5b8e7add80633bd33919c81090758535dbda9",
+        "160ms/frontend/config.json": "ca85fbe03e0f351470fabbf8c5444693f35e1fc7ef472964e3fe7101db055c23",
+        "160ms/frontend/rows_const.npy": "906bfb42b5f526dd4177739d29b5800de98cb448e8336d379da50bc90198278b",
+        "LICENSE": "08e5c2eefbed9d5064da3fed3ff8e1005100c1f76c84439f7220ec0fa0301cf5",
+        "LICENSES/Apache-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "LICENSES/Pandora-Model-SDK.en.txt": "2de3adf5d4afde83c75ddff3bfe596f9f769acfa746a51ae7ea7e949d2ff297c",
+        "LICENSES/Pandora-Model-SDK.zh-CN.txt": "2552f7a6eb20986f706e2512fabef6224b9304de8507b8b7896c24e56e5685a1",
+        "LICENSES/Silero-VAD-MIT.txt": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b",
+        "NOTICE": "77f04e0f3f82121bb149500a9e0381ee58236d13aefa415616d4f3efb54d8bfa",
+        "SHA256SUMS": "4555cc6bcdcc80846d75a501494163483d335ad6c1f2bcce406a5ad04592f507",
+        "common/embedding.npy": "0fc62309ad25fda8cf1feddbe5f9c5a71acbcaec4be7d2ac89dc151ed10bed4f",
+        "common/mel_filters.npy": "8abf12444e0d9c0fd6c5e49f8b977d41e47b51a5eb48d399c232578d3d5e914f",
+        "common/rotation.npy": "6e575fca23ba638e9a94e540ba802aa446091ec0bbfc9e56d98cd36b8e4ebeda",
+        "common/silero_vad.onnx": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+        "common/token_bytes.json": "5a604e6379f8ec56ee0887c06abff075325bf74db51ad7b44fcd86ab6d238994",
+        "common/vad/W.npy": "3349f3a8736142613f3aeed6f4aff241d000d0dc94654c08dbeb0ffb8aad1fb3",
+        "common/vad/b.npy": "93327325abebf6318e47629592dca0c90881431d46ec6ba2bcd5bf5fa3162025",
+        "common/vad/meta.json": "09dd65ff1281bc41159250389d5d34fe6e5b05bea29ec5784ab0f8f4de2ced97",
+        "manifest.json": "0d5a6d38b78a07902aa837ddb64dd410f59204fa5d9d2f8cb9e3a7f6973faf00"
+      }
+    },
+    "translation": {
+      "repository": "APLUX-Pandora/multilingual-translation-01",
+      "revision": "b42fd6b49d5349c150f69cbbcdb370c94881a999",
+      "remote_prefix": "qcs8550",
+      "local_directory": "translation/qcs8550",
+      "private": true,
+      "files": {
+        "LICENSES/Model-license.txt": "1af3c6dc0c697277cbb6b68720787c1caa43a79c5626bf9f19cd8c00de9c8cd4",
+        "SHA256SUMS": "f3ea62fcf7f22d8135a95c5306b8671a9498bc828e4a470b489727b65ed2b98c",
+        "cache/prefix.bin": "b8671fdffde1bb387e8e8d6e078210d5625cbfbe0527da72d667b72e0a0232ad",
+        "graphs/model-0.aidem": "a4c8396ccc2cfa0978e2dafcab1f7b10d1c733aefc4c6ddf69c4b80acc6f16e4",
+        "graphs/model-1.aidem": "218810b221dd9c41bab9600f2ab76e9d1c89ac438af396cdaf234227a0e3cd90",
+        "graphs/model-2.aidem": "9d494eda384e58246033df1c68d77970f3f1d4ef702778a8529dc4d0bddbb1cb",
+        "manifest.json": "6aec3a355fea10fd6bb9223c673035c7f2e253fbc117ace79e6c07e1be1da112",
+        "runtime.json": "cecd8b6f6d78adbfe26868912d6fe4f1ade4a337766092cbe7fb9520d068fc37"
+      }
+    }
+  }
+}

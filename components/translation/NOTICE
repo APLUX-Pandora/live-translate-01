@@ -1,0 +1,16 @@
+Multilingual Translation 01
+==========================
+
+APLUX application code and interfaces: Apache-2.0 where designated.
+APLUX proprietary SDK contributions: scoped Pandora agreement in LICENSES/.
+These terms do not replace upstream or third-party permissions.
+
+nlohmann/json
+  JSON for Modern C++, Copyright (c) 2013-2022 Niels Lohmann.
+  MIT and accompanying terms: LICENSES/nlohmann-json.txt.
+  JSON support is compiled into the SDK; full terms are retained.
+
+External components (not distributed)
+  AidGen SDK, Qualcomm QNN/QAIRT and system runtime libraries retain their terms.
+  Model weights and tokenizer resources are supplied in a separate compatible
+  model package with its own licenses and attribution.
