@@ -125,17 +125,7 @@
   .translation-bar h2 { margin: 0 auto 0 0; font-size: 12px; }
   #translationState { color: var(--muted); font-size: 11px; }
   #copyTranslation { font-size: 11px; padding: 3px 8px; }
-  .output-tabs { display: flex; gap: 4px; margin-bottom: 10px; padding: 3px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; flex: none; }
-  .output-tabs button { flex: 1; padding: 6px 8px; border-color: transparent; background: transparent; font-size: 12px; }
-  .output-tabs button[aria-selected="true"] { background: var(--panel); border-color: var(--accent); color: var(--accent); }
-  .output-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .result-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .asr-original { display: none; }
-  [data-view="asr"] .asr-original { display: block; }
-  [data-view="asr"] .sentence-list { display: none; }
-  [data-view="translation"] .sentence-pair .paragraph-text { display: none; }
-  [data-view="translation"] .sentence-pair[data-translated="false"] { display: none; }
-  [data-view="translation"] .sentence-pair .target { margin-top: 0; color: var(--text); }
   .translation-bar[hidden], .bar button[hidden] { display: none; }
   .paragraph-pair { margin: 0 0 20px; }
   .pair-heading { margin-bottom: 2px; }
@@ -206,17 +196,12 @@
       <span id="longHint"></span>
     </div>
   </section>
-  <section class="panel right" id="outputPanel" data-view="bilingual">
+  <section class="panel right" id="outputPanel">
     <div class="bar"><h2 id="outputTitle">Bilingual transcript</h2>
       <button id="copyBtn">Copy original</button><button id="dlBtn">Export original</button><button id="clearBtn">Clear display</button></div>
-    <div class="output-tabs" role="tablist" aria-label="Output view">
-      <button id="viewAsrTab" role="tab" aria-selected="false" tabindex="-1" aria-controls="resultPanel" data-view="asr">ASR transcript</button>
-      <button id="viewTranslationTab" role="tab" aria-selected="false" tabindex="-1" aria-controls="resultPanel" data-view="translation">Translation only</button>
-      <button id="viewBilingualTab" role="tab" aria-selected="true" tabindex="0" aria-controls="resultPanel" data-view="bilingual">Bilingual</button>
-    </div>
     <div class="translation-bar" id="translationBar"><h2 id="translationTarget">Translation</h2><span id="translationState" role="status">Waiting for transcript</span><button id="copyTranslation">Copy translation</button></div>
-    <div class="result-panel" id="resultPanel" role="tabpanel" aria-labelledby="viewBilingualTab">
-    <div id="transcript" tabindex="0" role="log" aria-label="Original and translated paragraphs" aria-live="polite" aria-relevant="additions text"></div>
+    <div class="result-panel" id="resultPanel" role="region" aria-labelledby="outputTitle">
+    <div id="transcript" tabindex="0" role="log" aria-label="Original and translated sentences" aria-live="polite" aria-relevant="additions text"></div>
     </div>
     <div id="notice"></div>
   </section>
@@ -245,7 +230,7 @@
 </main>
 <div id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
  <div class="doc">
-<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. One text area alternates each source sentence with its own streamed translation. Live unfinished source text remains at the end until its translation unit is submitted. Original ASR paragraph breaks remain unchanged. The Output view tabs switch between the original ASR transcript, translation only and sentence-aligned bilingual text. Switching views preserves playback and the current ASR session. ASR transcript pauses translation inference; returning to a translation view resumes unfinished work and translates the ASR text collected while paused. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
+<h3>Live translation</h3><p>Select a video to fill its recorded source language automatically; correct Source language if needed. Choose the Target language before starting. Language controls unlock after Stop and remaining translation finishes. Original text appears continuously. Translation starts at a sentence, turn or pause boundary and appears progressively in paragraphs matching the transcript. One text area alternates each source sentence with its own streamed translation. Live unfinished source text remains at the end until its translation unit is submitted. Original ASR paragraph breaks remain unchanged. Internal phrase boundaries do not create display paragraphs. Long speech uses clause boundaries and a waiting limit. Stop finishes accepted audio and its remaining translations; starting again or seeking begins a new translation session.</p>
   <button class="close" id="helpClose" aria-label="Close">×</button>
   <h2 id="helpTitle">Live Translate 01 · web demo · user manual</h2>
   <p class="muted">Everything runs on the board (NPU for the models, CPU for audio front end, VAD and decoding). This page is served by the
@@ -335,7 +320,6 @@
 <div id="overlay"><div class="box2"><div class="spin"></div><div id="ovMsg">Loading models…</div><div class="sub">The board is reloading the NPU models, this takes a few seconds.</div></div></div>
 <script src="/pcm-worklet.js"></script>
 <script src="/translation.js"></script>
-<script src="/views.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const video = $("video"), tr = $("transcript");
@@ -666,7 +650,7 @@ async function start() {
   const off = startPos();
   video.pause(); if (off === 0) video.currentTime = 0;
   resetTranscript(false);
-  const r = await post("/api/start", { video: $("videoSel").value, offset_s: off, target: $("targetSel").value, translation_enabled: transcriptView !== "asr", paragraph_options: paragraphOptions() });
+  const r = await post("/api/start", { video: $("videoSel").value, offset_s: off, target: $("targetSel").value, translation_enabled: true, paragraph_options: paragraphOptions() });
   if (r.error) { upMsg(r.error, true); restarting = false; return; }
   sid = r.sid; running = true;
   await ensureAudio();
@@ -682,7 +666,7 @@ async function stop(signal) {
 video.addEventListener("ended", () => { if (running) sendEnd(); });
 async function jump() {                            // playhead moved during a run: continue from there (fresh session)
   if (!running) return;
-  const r = await post("/api/start", { video: $("videoSel").value, offset_s: video.currentTime, jump: true, target: $("targetSel").value, translation_enabled: transcriptView !== "asr", paragraph_options: paragraphOptions() });
+  const r = await post("/api/start", { video: $("videoSel").value, offset_s: video.currentTime, jump: true, target: $("targetSel").value, translation_enabled: true, paragraph_options: paragraphOptions() });
   if (r.error) { upMsg(r.error, true); return; }
   sid = r.sid;
   newAudioEpoch();

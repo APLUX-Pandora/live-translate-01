@@ -7,7 +7,6 @@ const translatedRows = new Map();
 const translationParagraphs = new Map();
 let translationFrame = null;
 let translationPending = 0;
-let transcriptView = "bilingual";
 let translationEnabled = true;
 let translationModeEpoch = -1;
 function applyTranslationMode(enabled, epoch) {
@@ -17,7 +16,6 @@ function applyTranslationMode(enabled, epoch) {
     translationModeEpoch = epoch;
   }
   translationEnabled = enabled;
-  if (typeof syncTranscriptMode === "function") syncTranscriptMode(enabled);
 }
 function translationStatus(count, hasText = true) {
   return !translationEnabled ? "Translation paused" : count ? `${count} pending` : hasText ? "Up to date" : "Waiting for transcript";
@@ -71,10 +69,9 @@ function translationParagraph(data) {
     const body = document.createElement("div"); body.className = "sentence-list";
     const draft = makeSentencePair(); draft.element.dataset.pending = "true";
     body.append(draft.element);
-    const original = document.createElement("div"); original.className = "asr-original paragraph-text"; original.dir = "auto";
-    element.append(heading, body, original);
+    element.append(heading, body);
     document.getElementById("transcript").append(element);
-    row = {element, stamp, body, draft, original, units: new Map(), jobs: [], groups: [], dirtyGroups: new Set(), committedLength: 0, sourceText: "", start_s: undefined};
+    row = {element, stamp, body, draft, units: new Map(), jobs: [], groups: [], dirtyGroups: new Set(), committedLength: 0, sourceText: "", start_s: undefined};
     dirtyParagraphs.add(id);
     translationParagraphs.set(id, row);
   }
@@ -147,10 +144,6 @@ function renderTranslation() {
     for (const id of dirtyParagraphs) {
       const row = translationParagraphs.get(id);
       if (!row) continue;
-      if (transcriptView === "asr") {
-        setText(row.original, row.sourceText.trim());
-        continue;
-      }
       const tail = row.sourceText.slice(row.committedLength);
       for (const group of row.dirtyGroups) {
         let unit = row.units.get(group.id);

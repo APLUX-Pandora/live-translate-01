@@ -604,7 +604,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._file(f"{STATIC}/logo.png", "image/png")
         if p == "/pcm-worklet.js":
             return self._file(f"{STATIC}/pcm-worklet.js", "text/javascript; charset=utf-8")
-        if p in ("/translation.js", "/views.js"):
+        if p == "/translation.js":
             return self._file(f"{STATIC}{p}", "text/javascript; charset=utf-8")
         if p == "/api/videos":
             return self._json({"videos": S.videos(), **S.info()})
