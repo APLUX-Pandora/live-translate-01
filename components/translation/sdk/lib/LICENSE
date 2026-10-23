@@ -1,9 +1,0 @@
-SDK licensing scope
-===================
-
-APLUX proprietary implementation contributions are covered only to the extent
-APLUX owns or may license them by LICENSES/Pandora-Model-SDK.zh-CN.txt and its
-English translation LICENSES/Pandora-Model-SDK.en.txt. Third-party code retains
-its applicable terms. The interface header and verifier are Apache-2.0.
-Vendor runtimes and model packages are external and retain their own terms.
-Keep these notices and accompanying full license texts with this SDK payload.

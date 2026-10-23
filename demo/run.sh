@@ -12,4 +12,4 @@ export OPENBLAS_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 export LT01_CLOCK_MS=160
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-exec "$PYTHON" -u "$HERE/demo_server.py" "$@"
+exec "$PYTHON" -u "$HERE/launch.py" "$@"

@@ -41,6 +41,11 @@ class Segmenter:
                 open_ends -= {"that", "this", "these", "those"}
             complete = words[-1].lower() not in open_ends
             if terminal and re.search(
+                    r'\bdo\s+you\s+want\s+(?:people|users|them|us)\s+to\s+'
+                    r'(?:open|read|write|create|use|install|download|configure|share)\s*\?$',
+                    text.strip(), re.I):
+                complete = False
+            if terminal and re.search(
                     r"\b(?:if|when|while|because|though|unless|until|that)\s+"
                     r"(?:i|you|we|they|he|she|it)\s+"
                     r"(?:have|has|had|are|is|was|were|can|could|will|would|should|must|do|does|did)"

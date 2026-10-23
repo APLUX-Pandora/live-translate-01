@@ -1,23 +1,21 @@
 # Licensing scope
 
-- Application/business code, examples and designated interfaces: Apache-2.0.
-- Native transcription SDK: scoped terms in `sdk/lib/LICENSE` and its license files.
-- Native translation SDK: scoped terms in `components/translation/LICENSE`,
-  `components/translation/sdk/lib/LICENSE` and their accompanying license files.
-- Third-party components retain their rights, full terms and notices. Pandora
-  terms apply only to APLUX rights and do not revoke independently granted rights.
-- Model packages are downloaded separately and retain the terms delivered with
-  them. Repository access does not grant additional model rights.
-- Input video/audio files are supplied by the user. The attributed demonstration
-  recording and poster retain the separate media terms described below.
+Application/business code and new Python examples are under the root Apache-2.0
+license. Existing component Python interfaces retain their supplied licenses.
+The ASR and translation SDKs are independently installed and retain their original
+licenses and release status. This application does not bundle their libraries,
+headers or bindings, and does not relicense those components or vendor runtimes.
+Historical SDK copies remain only in Git history. Existing attribution texts for
+application code derived from the ASR demo are preserved in NOTICE and LICENSES/.
 
-Preserve LICENSE, NOTICE, LICENSES and component-level license/notice files when
-redistributing the corresponding code or binaries. Vendor platform runtimes are
-external dependencies and retain their separate terms.
+Model packages are separate resources and retain their package-level licenses and
+notices. Access to a private repository is not a grant of additional model rights.
+Reusing a fixed model revision does not change its terms. See `resources/README.md`.
 
-## Demonstration recording
-
-The attributed recording/poster contain Lorna Mitchell's FOSDEM 2025 lecture
-under CC BY 2.0 BE. See docs/MEDIA_ATTRIBUTION.md. These media retain their own
-terms; application/SDK licenses do not restrict the lecture rights. Input lecture
-files and model weights are not bundled.
+The original ASR notice is retained in root NOTICE, including references to media
+from the original component project. Those references do not mean that all those
+files are bundled with this composite. Existing internal test media are not part
+of the application git tree, and their external redistribution is not approved by
+this project. Use your own authorized audio/video as input. The approved demonstration recording
+and poster are separately attributed in docs/MEDIA_ATTRIBUTION.md and retain
+the lecture's CC BY 2.0 BE terms.

@@ -9,3 +9,5 @@ evidence/
 
 demo/media/
 .venv-*/
+
+out/

@@ -64,7 +64,8 @@
         "NOTICE": "resources/compatibility/asr/NOTICE",
         "SHA256SUMS": "resources/compatibility/asr/SHA256SUMS",
         "manifest.json": "resources/compatibility/asr/manifest.json"
-      }
+      },
+      "model_farm_model": "Audio8-ASR-Infinite-160ms"
     },
     "translation": {
       "repository": "APLUX-GenAI/Hy-MT2-1.8B",
@@ -93,7 +94,14 @@
         "SHA256SUMS": "resources/compatibility/translation/SHA256SUMS",
         "manifest.json": "resources/compatibility/translation/manifest.json",
         "runtime.json": "resources/compatibility/translation/runtime.json"
+      },
+      "model_farm_reference": {
+        "repository": "APLUX-GenAI/Hy-MT2-1.8B",
+        "resource_revision": "1f980ac6185468a4ea4e61fba761b72f88eaadb0",
+        "documentation_revision": "25139aca03c874d1951256f0753f1945a13ba3cf",
+        "directory": "qnn236_qcs8550_cl4096"
       }
     }
-  }
+  },
+  "scope": "Existing independently acquired model payload identities; ModelFarm resource mappings preserve every tested graph/cache hash. This composite bundles no model weights or SDK."
 }

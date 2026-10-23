@@ -12,8 +12,7 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(ROOT/'demo'), str(ROOT/'sdk/python'),
-                str(ROOT/'components/translation/sdk/python')]
+sys.path.insert(0, str(ROOT/'demo'))
 os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 os.environ.setdefault('OMP_NUM_THREADS', '1')
 
@@ -26,6 +25,7 @@ def main():
     ap.add_argument('--target', choices=LANGUAGES)
     ap.add_argument('--models', help='ASR package root containing manifest.json')
     ap.add_argument('--translation-models', help='Translation package root containing manifest.json')
+    ap.add_argument('--translation-library', help='Qualified independent HY-MT2 library override')
     ap.add_argument('--seconds', type=float, help='Limit input duration for a short sample')
     ap.add_argument('--realtime', action='store_true', help='Pace audio at its original speed')
     a = ap.parse_args()
@@ -40,7 +40,9 @@ def main():
     import numpy as np
     import soundfile as sf
     from scipy.signal import resample_poly
-    from live_transcribe_01 import Engine, extra_file
+    from component_paths import configure
+    _, translation_root = configure()
+    from audio8_asr import Engine, extra_file
     from model_paths import resolve_packages
     from paragraphs import ParagraphTracker
     from reset_policy import ResetPolicy
@@ -65,7 +67,8 @@ def main():
 
     engine = service = None
     try:
-        service = TranslationService(paths[1], ROOT/'components/translation/sdk/python', emit)
+        service = TranslationService(paths[1], translation_root/'sdk/python', emit,
+                                     library=a.translation_library)
         engine = Engine(paths[0], clock_ms=160, lang=a.source)
         engine.reset()
         policy = ResetPolicy(engine)
@@ -134,10 +137,12 @@ def main():
         emit(dict(type='complete', source_text=''.join(source), paragraphs=paragraphs.snapshot(),
                   translations=snapshot['segments'], source_conserved=True))
     finally:
-        if service:
-            service.close()
-        if engine:
-            engine.close()
+        try:
+            if service:
+                service.close()
+        finally:
+            if engine:
+                engine.close()
 
 
 if __name__ == '__main__':

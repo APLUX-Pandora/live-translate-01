@@ -13,7 +13,6 @@ The composite uses the verified 160 ms ASR configuration. Each launch uses this
 project's .venv; native AidLite/AidGen/QNN runtimes remain system dependencies.
 """
 import argparse
-import atexit
 import codecs
 import collections
 import json
@@ -21,6 +20,7 @@ import os
 from pathlib import Path
 import queue
 import re
+import select
 import signal
 import subprocess
 import sys
@@ -31,11 +31,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, f"{ROOT}/sdk/python")
+if __name__ == '__main__':
+    # Native pools inherit a blocked stop-signal mask before any library starts threads.
+    _entry_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+    if 'LIVE_TRANSLATE_STOP_FD' in os.environ:
+        # The supervisor owns stop signals. Vendor-created threads may change
+        # masks, so ignore these OS signals in the model process itself.
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 import numpy as np  # noqa: E402
 
-from live_transcribe_01 import Engine, LT01Error, extra_file  # noqa: E402
 from model_package_check import PackageVerifier
 from reset_policy import ResetPolicy  # noqa: E402
 from vad_gate import SileroGate  # noqa: E402
@@ -47,6 +53,8 @@ from translation_service import TranslationService
 MODELS = None                         # resolved after argument parsing; --help needs no installed package
 TRANSLATION_MODELS = None
 TRANSLATION_LIBRARY = None
+TRANSLATION_SDK = None
+STOP = threading.Event()
 
 MEDIA = f"{HERE}/media"
 UPLOADS = f"{MEDIA}/uploads"
@@ -99,10 +107,20 @@ class Session:
     def __init__(self):
         self.lock = threading.Lock()
         self.subs = []
+        self.stopping = threading.Event()
+        self.asr = self.translations = None
+        self.worker_thread = self.sysmon_thread = None
+        self._closed = False
+        try:
+            self.initialize()
+        except BaseException:
+            self.close()
+            raise
+
+    def initialize(self):
         self.translations = TranslationService(TRANSLATION_MODELS,
-                                              os.path.join(ROOT, "components/translation/sdk/python"), self.broadcast,
-                                              library=TRANSLATION_LIBRARY)
-        atexit.register(self.translations.close)
+                                              TRANSLATION_SDK, self.broadcast,
+                                              library=TRANSLATION_LIBRARY, stop_event=STOP)
         self.worker_sid = None
         self.segmenter = None
         self.paragraph_tracker = None
@@ -132,9 +150,12 @@ class Session:
         self.target = target_for(self.lang)
         self.asr = None
         self.load_engine()
-        self.worker_thread = threading.Thread(target=self.worker, daemon=True)
+        if STOP.is_set():
+            raise InterruptedError('Stopped during ASR initialization')
+        self.worker_thread = threading.Thread(target=self.worker)
         self.worker_thread.start()
-        threading.Thread(target=self.sysmon, daemon=True).start()
+        self.sysmon_thread = threading.Thread(target=self.sysmon)
+        self.sysmon_thread.start()
 
     def load_engine(self):
         t = time.time()
@@ -154,7 +175,14 @@ class Session:
     # ------------------------------------------------------------ events
     def broadcast(self, ev):
         for q in list(self.subs):
-            q.put(ev)
+            try:
+                q.put_nowait(ev)
+            except queue.Full:
+                # A slow SSE reader reconnects to the bounded replay snapshot.
+                try:
+                    self.subs.remove(q)
+                except ValueError:
+                    pass
 
     def info(self):
         a = self.asr
@@ -408,7 +436,7 @@ class Session:
     def work(self):
         # pend = gated samples not yet fed; fed = samples fed to the engine in this run. The audio arrives from the page in
         # 100 ms chunks (self.audio) while the video plays.
-        dec, fed, pend, steps, t_start, first_char = None, 0, np.zeros(0, np.float32), [], 0.0, None
+        dec, fed, pend, steps, t_start, first_char = None, 0, np.zeros(0, np.float32), collections.deque(maxlen=200), 0.0, None
         flushed, warned = False, False
         while not self.stopping.is_set():
             with self.lock:
@@ -433,7 +461,7 @@ class Session:
                     off_s, jump = self.offset_s, self.jump
                 self.off_s = off_s
                 dec, fed, pend, steps, t_start, first_char = (codecs.getincrementaldecoder("utf-8")(errors="replace"), 0,
-                                                              np.zeros(0, np.float32), [], time.time(), None)
+                                                              np.zeros(0, np.float32), collections.deque(maxlen=200), time.time(), None)
                 flushed, warned = False, False
                 with self.lock:
                     if self.sid == sid and self.state == "reset":
@@ -505,11 +533,19 @@ class Session:
         self.broadcast({"type": "loading", "on": False, "error": err})
 
     def close(self):
+        if self._closed:
+            return
         self.stopping.set()
-        self.worker_thread.join(15)
-        self.translations.close()
-        if not self.worker_thread.is_alive():
+        for thread in (self.worker_thread, self.sysmon_thread):
+            if thread is not None:
+                thread.join()
+        try:
+            if self.translations is not None:
+                self.translations.close()
+        finally:
             self.close_engine()
+        self._closed = True
+        print('{"asr_engine_closed": true, "session_closed": true}', flush=True)
 
     @staticmethod
     def eot(toks):
@@ -563,7 +599,7 @@ class Session:
             if tail:
                 accept(tail, fed/self.fs, 0.0, self.n_gen, None)
             collect(self.segmenter.finish())
-        ms = 1000 * np.array(steps[-200:]) if steps else np.zeros(1)
+        ms = 1000 * np.array(list(steps)[-200:]) if steps else np.zeros(1)
         # video time of the first text token of this piece (its row time minus the model delay), for paragraph timestamps
         t_first = None
         for k in toks:
@@ -581,6 +617,10 @@ S = None
 
 
 class Handler(BaseHTTPRequestHandler):
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(3)
+
     def log_message(self, fmt, *args):
         pass
 
@@ -630,6 +670,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_POST(self):
+        if S.stopping.is_set():
+            return self._json({'error': 'Service is stopping'}, 503)
         p = self.path.split("?")[0]
         if p == "/api/audio":                           # raw PCM16 body, ?sid=<run>
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
@@ -684,7 +726,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
-        q = queue.Queue()
+        q = queue.Queue(maxsize=256)
         S.subs.append(q)
         try:
             self.wfile.write(f"data: {json.dumps(S.info())}\n\n".encode())
@@ -695,17 +737,20 @@ class Handler(BaseHTTPRequestHandler):
                 h = {"type": "sys_hist", "dram_total_mb": S.dram_total, "pts": list(S.sys_hist)}
                 self.wfile.write(f"data: {json.dumps(h)}\n\n".encode())
             self.wfile.flush()
-            while True:
+            while not S.stopping.is_set() and q in S.subs:
                 try:
-                    ev = q.get(timeout=10)
+                    ev = q.get(timeout=.5)
                     self.wfile.write(f"data: {json.dumps(ev, ensure_ascii=False)}\n\n".encode())
                 except queue.Empty:
                     self.wfile.write(b": keepalive\n\n")
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
             pass
         finally:
-            S.subs.remove(q)
+            try:
+                S.subs.remove(q)
+            except ValueError:
+                pass
 
     def _file(self, path, ctype):
         size = os.path.getsize(path)
@@ -739,39 +784,96 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global S, MODELS, TRANSLATION_MODELS, TRANSLATION_LIBRARY
+    global S, MODELS, TRANSLATION_MODELS, TRANSLATION_LIBRARY, TRANSLATION_SDK, Engine, LT01Error, extra_file
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--models", default=os.environ.get("LT01_MODELS"),
                     help="package root containing manifest.json; default: discover this demo models directory")
     ap.add_argument("--translation-models", default=os.environ.get("LIVE_TRANSLATE_MODELS"),
                     help="Translation package root containing manifest.json")
-    ap.add_argument("--translation-library", help="Explicit native translation library for SDK validation; default: bundled SDK")
+    ap.add_argument('--media-dir', help='Existing independent media directory')
+    ap.add_argument("--translation-library", help="Explicit native translation library for SDK validation; default: independent HY-MT2 SDK")
     a = ap.parse_args()
     if a.translation_library:
         TRANSLATION_LIBRARY = str(Path(a.translation_library).resolve(strict=True))
-    sys.path.insert(0, os.path.join(ROOT, "components/translation/sdk/python"))
-    from multilingual_translation import TranslationError
+    from component_paths import configure
+    try:
+        asr_root, translation_root = configure()
+    except ValueError as error:
+        ap.error(str(error))
+    TRANSLATION_SDK = str(translation_root/'sdk/python')
+    from audio8_asr import Engine, A8Error, extra_file
+    LT01Error = A8Error
+    from hy_mt2 import TranslationError
     from model_paths import resolve_packages
     try:
         MODELS, TRANSLATION_MODELS = resolve_packages(a.models, a.translation_models)
     except (LT01Error, TranslationError) as error:
         ap.error(str(error))
-    print(f"[demo] model package: {MODELS}", flush=True)
-    S = Session()
-    print(f"[demo] engine ready in {S.init_s:.1f}s, {S.clock} ms clock, lang {S.lang}; http://0.0.0.0:{a.port}/", flush=True)
-    srv = ThreadingHTTPServer(("0.0.0.0", a.port), Handler)
-    srv.daemon_threads = True
-    def interrupt(_signum, _frame):
-        raise KeyboardInterrupt
-    signal.signal(signal.SIGTERM, interrupt)
+    global MEDIA, UPLOADS
+    if a.media_dir:
+        MEDIA = str(Path(a.media_dir).resolve(strict=True))
+        UPLOADS = str(Path(MEDIA)/'uploads')
+        Path(UPLOADS).mkdir(parents=True, exist_ok=True)
+    print(json.dumps({'asr_sdk':str(asr_root),'translation_sdk':str(translation_root),'asr_models':str(MODELS),'translation_models':str(TRANSLATION_MODELS)}), flush=True)
+    signals = {signal.SIGTERM, signal.SIGINT}
+    done = threading.Event()
+    old_handlers = {s:signal.getsignal(s) for s in signals}
+    control_fd = int(os.environ['LIVE_TRANSLATE_STOP_FD']) if 'LIVE_TRANSLATE_STOP_FD' in os.environ else None
+    if control_fd is None:
+        for s in signals:
+            signal.signal(s, lambda *_: STOP.set())
+    def receive():
+        while not done.is_set():
+            if control_fd is not None:
+                readable, _, _ = select.select([control_fd], [], [], .2)
+                if readable:
+                    message = os.read(control_fd, 1)
+                    if message in (b'S', b''):
+                        print('{"supervisor_stop_requested": true}', flush=True)
+                        STOP.set()
+                        return
+            else:
+                received = signal.sigwait(signals)
+                if done.is_set():
+                    return
+                if received in signals:
+                    print(json.dumps({'stop_signal': received}), flush=True)
+                    STOP.set()
+    receiver = threading.Thread(target=receive)
+    receiver.start()
+    srv = None
     try:
-        srv.serve_forever()
-    except KeyboardInterrupt:
-        pass
+        S = Session()
+        if STOP.is_set():
+            return
+        srv = ThreadingHTTPServer(("0.0.0.0", a.port), Handler)
+        srv.daemon_threads = False
+        srv.timeout = .2
+        print(f"[demo] engine ready in {S.init_s:.1f}s, {S.clock} ms clock, lang {S.lang}; http://0.0.0.0:{a.port}/", flush=True)
+        while not STOP.is_set():
+            srv.handle_request()
+    except InterruptedError:
+        if not STOP.is_set():
+            raise
     finally:
-        srv.server_close()
-        S.close()
+        try:
+            if S is not None:
+                S.stopping.set()
+            if srv is not None:
+                srv.server_close()
+            if S is not None:
+                S.close()
+        finally:
+            done.set()
+            if control_fd is None and receiver.is_alive():
+                signal.pthread_kill(receiver.ident, signal.SIGTERM)
+            receiver.join()
+            if control_fd is not None:
+                os.close(control_fd)
+            signal.pthread_sigmask(signal.SIG_SETMASK, globals().get('_entry_mask', set()))
+            for s, handler in old_handlers.items():
+                signal.signal(s, handler)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def resolve_packages(asr=None, translation=None):
-    from live_transcribe_01 import resolve_model_dir as resolve_asr
-    from multilingual_translation import resolve_model_dir as resolve_translation
+    from audio8_asr import resolve_model_dir as resolve_asr
+    from hy_mt2 import resolve_model_dir as resolve_translation
     return (resolve_asr(asr, models_root=ROOT/'models/asr'),
             resolve_translation(translation, default_container=ROOT/'models/translation'))

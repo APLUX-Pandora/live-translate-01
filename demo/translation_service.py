@@ -2,16 +2,18 @@
 from collections import deque
 from dataclasses import asdict
 import multiprocessing as mp
+import signal
 from pathlib import Path
 import queue
 import sys
 import threading
 import time
+from translation_input import translation_input
 
 
 def _worker(commands, events, model_dir, sdk_dir, library=None):
     sys.path.insert(0, sdk_dir)
-    from multilingual_translation import Translator
+    from hy_mt2 import Translator
     try:
         engine = Translator(model_dir, library=library)
     except Exception as exc:
@@ -102,33 +104,55 @@ def _worker(commands, events, model_dir, sdk_dir, library=None):
                     break
                 condition.notify_all()
     finally:
-        generator.join(15)
-        if not generator.is_alive():
-            engine.close()
+        with condition:
+            state['closing'] = True
+            pending.clear()
+            condition.notify_all()
+        generator.join()
+        canceller.join()
+        engine.close()
+        print('{"translation_engine_closed": true}', flush=True)
+        events.put({'kind': 'closed'})
 
 
 class TranslationService:
-    def __init__(self, model_dir, sdk_dir, broadcast, library=None):
+    def __init__(self, model_dir, sdk_dir, broadcast, library=None, stop_event=None):
         self.broadcast = broadcast
         self.lock = threading.RLock()
         self.sid, self.language, self.target = None, "en", "zh"
         self.records = {}
         self.enabled, self.epoch, self.worker_active = True, 0, False
         self.closed = False
+        self.closing = False
         context = mp.get_context("spawn")
-        self.commands, self.events = context.Queue(), context.Queue()
+        self.commands, self.events = context.Queue(maxsize=128), context.Queue(maxsize=512)
         self.process = context.Process(target=_worker, args=(self.commands, self.events, str(model_dir), str(sdk_dir), str(library) if library else None))
         self.process.start()
         try:
-            event = self.events.get(timeout=120)
+            deadline = time.monotonic()+120
+            while True:
+                if stop_event is not None and stop_event.is_set():
+                    raise InterruptedError('Stopped during translation initialization')
+                try:
+                    event = self.events.get(timeout=.2)
+                    break
+                except queue.Empty:
+                    if not self.process.is_alive() or time.monotonic()>deadline:
+                        raise RuntimeError('Translation worker initialization failed or timed out')
             if event["kind"] != "ready":
                 raise RuntimeError(event.get("error", "Translation worker failed to load"))
             self.info = event.get("info", {})
         except BaseException:
-            self.process.terminate()
-            self.process.join(10)
+            self.commands.put({'kind':'close'})
+            self.process.join(150)
+            if self.process.is_alive():
+                self.process.kill()
+                self.process.join()
+                print('{"translation_close_failed": "initialization timeout"}', flush=True)
+            self._close_queues()
             raise
-        threading.Thread(target=self._listen, daemon=True).start()
+        self.listener = threading.Thread(target=self._listen)
+        self.listener.start()
 
     def _reset_worker(self):
         self.epoch += 1
@@ -158,8 +182,10 @@ class TranslationService:
             self._reset_worker()
 
     def _queue_task(self, record):
+        source = translation_input(record['source_text'], self.language)
+        record['translation_input'] = source
         self.commands.put(dict(kind="translate", sid=self.sid, epoch=self.epoch,
-                               id=record["id"], text=record["source_text"], source=self.language,
+                               id=record["id"], text=source, source=self.language,
                                target=self.target, submitted=time.monotonic()))
 
     def set_enabled(self, enabled):
@@ -196,9 +222,16 @@ class TranslationService:
                 return
             status = "queued" if self.enabled else "paused"
             record = dict(asdict(segment), paragraph_id=paragraph_id, source_text=segment.text,
+                          translation_input=translation_input(segment.text, self.language),
                           source_language=self.language, target_language=self.target,
                           translation="", status=status, revision=0)
             self.records[segment.id] = record
+            # Keep pending work; expire only completed replay history.
+            for key in list(self.records):
+                if len(self.records) <= 256:
+                    break
+                if self.records[key]['status'] in ('done', 'cancelled', 'error'):
+                    del self.records[key]
             self.broadcast(dict(type="translation", kind=status, sid=sid, **record,
                                 pending=self._pending()))
             if self.enabled:
@@ -249,15 +282,28 @@ class TranslationService:
                                                     id=row["id"], error="Translation worker stopped", pending=0))
                     return
                 continue
+            if event['kind'] == 'closed':
+                return
             self._handle_event(event)
 
+    def _close_queues(self):
+        for channel in (self.commands, self.events):
+            channel.close()
+            channel.join_thread()
+
     def close(self):
-        if self.closed:
+        if self.closed or self.closing:
             return
+        self.closing = True
         self.cancel()
-        self.closed = True
         self.commands.put({"kind": "close"})
-        self.process.join(20)
+        self.process.join(150)
         if self.process.is_alive():
-            self.process.terminate()
-            self.process.join(10)
+            self.process.kill()
+            self.process.join()
+            raise RuntimeError('Translation close timed out; forced termination is not a passing cleanup')
+        self.closed = True
+        self.listener.join(2)
+        if self.listener.is_alive() or self.process.exitcode != 0:
+            raise RuntimeError('Translation worker/listener did not close cleanly')
+        self._close_queues()

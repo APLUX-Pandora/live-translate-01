@@ -1,4 +1,0 @@
-nlohmann/json: Copyright (c) 2013-2022 Niels Lohmann. MIT and accompanying
-terms are preserved in LICENSES/nlohmann-json.txt.
-AidGen, Qualcomm and operating-system runtimes are external dependencies,
-not distributed in this payload. They retain their respective terms.
