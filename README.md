@@ -6,7 +6,7 @@ Application 0.1.1 independently reuses Audio8 SDK 0.6.1 and HY-MT2 SDK 0.2.1. HY
 
 ## Install and reuse components
 
-Install [Audio8 ASR](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo) and [HY-MT2](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo) independently. Keep their SDK files, model packages, checksums and licenses in those installations. These private repositories require authorized access. Audio8 SDK 0.6.1 is the formally released static-ICU portability fix (install the independent Audio8 project at tag v0.6.1); reuse the independently provisioned HY-MT2 0.2.1 SDK. Its component release remains separate from this application release; the older HY-MT2 GitHub main is not an equivalent SDK snapshot. Supply your existing 0.2.1 installation through HY_MT2_SDK_ROOT. No SDK or weights should be copied into this application.
+Install [Audio8 ASR](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo) and [HY-MT2](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo) independently. Keep their SDK files, model packages, checksums and licenses in those installations. These private repositories require authorized access. Audio8 SDK 0.6.1 is the formally released static-ICU portability fix (install the independent Audio8 project at tag v0.6.1); install or reuse the independent HY-MT2 project at tag v0.2.1. Both component SDKs are formally published. Supply your existing HY-MT2 installation through HY_MT2_SDK_ROOT. No SDK or weights should be copied into this application.
 
 Use a separate project environment with Python 3.10 (tested). AidLite/QNN 2.48, AidGen and the board drivers are independent system prerequisites; video handling uses ffmpeg and ffprobe. Other Python minor versions are not execution-qualified by this check.
 
