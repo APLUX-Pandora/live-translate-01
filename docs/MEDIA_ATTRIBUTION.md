@@ -16,19 +16,20 @@ SDK and model licenses do not replace those terms. No endorsement is implied.
 ## Excerpt and changes
 
 The prepared source begins at original recording time **00:02:46.520**. This demo
-plays approximately **56.89 seconds**, through **00:03:43.410**, at normal speed,
-then stops playback while the accepted transcription and translation finish.
-The complete screen recording is **60 seconds**. It shows English speech
-transcription and Chinese machine translation produced live on the board.
+plays approximately **55.76 seconds**, through **00:03:42.280**, at normal speed,
+then stops playback while accepted transcription and translation finish.
+The complete screen recording is **60 seconds**. English transcription and
+Chinese translation are produced live on the board using the released SDKs.
 
 The source was previously trimmed, resized to 1280 by 720 and encoded as H.264/AAC.
-The Mac captured the isolated Demo page in the background using wall-clock-timed
-page frames. Those frames were encoded as H.264, without speeding up playback or
-removing inference waits. The exact source lecture audio was muxed using observed
-playback timestamps, with approximately 248 ms initial alignment; the closing
-stopped-playback interval is silent. A persistent attribution footer was added.
-The poster is a frame from this attributed recording.
+An isolated background Chrome on Mac captured actual timestamped page frames and
+the video's actual `captureStream()` audio. A continuous silent audio clock
+preserves the initial and closing stopped intervals. No source-audio replacement,
+playback speedup or inference-wait removal is used. Audio is attenuated by 3 dB
+for encoding headroom. A separate persistent attribution footer is added below
+the application viewport. The poster is a frame from this attributed recording.
 
 `demo.mp4` is the compact H.264/AAC copy. `demo-original.mp4` preserves the higher
-quality encode of the same captured frames, audio alignment and attribution.
-Keep this notice, the author/title and source/license links with redistribution.
+quality encode of the same captured frames and audio. Both are 1600 by 936 at
+25 frames per second. Keep this notice, the author/title and source/license links
+with redistribution.

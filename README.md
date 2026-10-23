@@ -24,11 +24,13 @@ Each explicit model path must directly contain manifest.json. The Web and exampl
 
 Provide authorized media under demo/media, optionally as links to an existing independent media directory. Preserve each video's language sidecar JSON. Open http://<board-address>:8766/, select its spoken language and a different target language, then Start. Browser playback feeds 16 kHz mono PCM; HTTP fallback remains available. Stop drains accepted audio and translation. Use demo/run.sh as the service command and send SIGTERM/SIGINT to its supervisor PID or process group. The supervisor notifies the model process over a pipe so vendor initialization is not interrupted. The model process stops admission, cancels obsolete translation, joins callers, explicitly closes both engines and closes HTTP owners. demo_server.py is the internal worker, not the qualified service entry point.
 
-## Existing demonstration
+## One-minute demonstration
 
-[Watch the approved one-minute recording](docs/demo.mp4) · [Original quality](docs/demo-original.mp4)
+[![English-to-Chinese live demonstration](docs/poster.png)](docs/demo.mp4)
 
-This existing recording predates the latest SDK/layout changes and is reused as requested. It demonstrates the earlier real-board flow. Source: Lorna Mitchell, FOSDEM2025, *Beyond the README*, CC BY2.0 Belgium. See [attribution](docs/MEDIA_ATTRIBUTION.md).
+[Watch the one-minute recording](docs/demo.mp4) · [Original quality](docs/demo-original.mp4)
+
+Recorded with application 0.1.1, Audio8 0.6.1 and HY-MT2 0.2.1: the built-in English video produces live transcription and Chinese translation on the board. Source: Lorna Mitchell, FOSDEM2025, *Beyond the README*, CC BY2.0 Belgium. See [attribution](docs/MEDIA_ATTRIBUTION.md).
 
 ## Streaming behavior
 
