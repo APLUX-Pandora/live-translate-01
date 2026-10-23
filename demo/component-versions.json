@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "components": {
+    "asr": {
+      "repository": "https://github.com/APLUX-Pandora/audio8-asr-infinite-demo",
+      "sdk_version": "0.6.1",
+      "library_sha256": "7b1dfc1d1cf1b2959dfd7c013c73eb89665f720f3c927c6b89afe92b022e1e40",
+      "binding_sha256": "5b1751a87155c657658d606d924a022c2afdd09ef761c063b916efe7b7cd800e"
+    },
+    "translation": {
+      "repository": "https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo",
+      "sdk_version": "0.2.1",
+      "library_sha256": "695f6846507c51ff20b61430cb17c26b176edf8edf1f79319662f3298128922a",
+      "binding_sha256": "52242c7fed7008cf861a10af1047fbc911057312dc5d3834e254e1ccae2722ba"
+    }
+  }
+}

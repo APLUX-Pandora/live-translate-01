@@ -6,27 +6,32 @@ import subprocess
 import sys
 import time
 
-def main():
-    requested = False
-    def stop(*_):
+def supervise(script, arguments, return_signal=False):
+    """Run a native-free signal owner and request ordinary child cleanup by pipe."""
+    requested = 0
+    def stop(signum, _frame):
         nonlocal requested
-        requested = True
+        if not requested:
+            requested = signum
     previous = {s:signal.signal(s, stop) for s in (signal.SIGINT, signal.SIGTERM)}
     read_fd, write_fd = os.pipe()
     environment = dict(os.environ, LIVE_TRANSLATE_STOP_FD=str(read_fd))
     child = None
     sent = False
     try:
-        child = subprocess.Popen([sys.executable, '-u', str(Path(__file__).with_name('demo_server.py')), *sys.argv[1:]],
+        child = subprocess.Popen([sys.executable, '-u', str(script), *arguments],
                                  env=environment, pass_fds=(read_fd,))
         os.close(read_fd)
         read_fd = None
         while child.poll() is None:
             if requested and not sent:
-                os.write(write_fd, b'S')
+                try:
+                    os.write(write_fd, b'S')
+                except BrokenPipeError:
+                    pass  # The child has already retired its stop reader.
                 sent = True
             time.sleep(.05)
-        return child.returncode
+        return 128 + requested if return_signal and requested and child.returncode == 0 else child.returncode
     finally:
         if read_fd is not None:
             os.close(read_fd)
@@ -36,6 +41,10 @@ def main():
             child.wait()
         for number, handler in previous.items():
             signal.signal(number, handler)
+
+def main():
+    return supervise(Path(__file__).with_name('demo_server.py'), sys.argv[1:])
+
 
 if __name__ == '__main__':
     raise SystemExit(main())

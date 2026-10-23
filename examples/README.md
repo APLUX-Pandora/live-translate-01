@@ -1,41 +1,25 @@
-# Standalone Python integration
+# Finite-file Python integration
 
-Run this example in the same project `.venv` used by the Web application. It calls
-the independently installed Audio8 ASR Python SDK and the translation Python SDK through the independent
-translation worker. It does not start an HTTP server, use browser state or import
-the Web server. Segmentation, paragraph association and job management remain
-business code outside the model SDKs.
-
-Set AUDIO8_SDK_ROOT and HY_MT2_SDK_ROOT as in the main README. Use Audio8 SDK 0.6.1 and HY-MT2 SDK 0.2.1 from their independent installations; no library override is needed for these versions. Prepare a mono or stereo WAV/FLAC supported by soundfile, record its spoken
-language, and download the model packages as described in `resources/README.md`.
-The example averages channels and resamples audio to 16 kHz using scipy.
+Run the file example through this application's `.venv/bin/python`, with the independent SDK roots and existing prepared model roots from the main README. No HTTP service or browser is involved; the same ASR/translation SDKs and business segmentation are reused.
 
 ```bash
-.venv/bin/python examples/python/translate_audio.py path/to/audio.wav \
-  --source en --target fr --seconds 25 --realtime
-# Optional strict package-root selection:
-.venv/bin/python examples/python/translate_audio.py path/to/audio.wav \
-  --source zh --target ja --models models/asr/qnn248_qcs8550 \
-  --translation-models models/translation/qcs8550
+.venv/bin/python examples/python/translate_audio.py /path/to/audio.wav \
+  --source en --target zh --models "$ASR_MODELS" \
+  --translation-models "$TRANSLATION_MODELS"
 ```
 
-Source choices are `zh en`; target choices are `zh en ja ko fr de es ar th`.
-Identical source/target choices are rejected. Omitting `--target` chooses English
-for Chinese input and Chinese for English input. Omitting `--realtime` processes
-the file as fast as the runtime permits; it is not a realtime latency benchmark.
-Explicit model paths are never silently replaced, and default discovery rejects
-multiple candidate packages. Launching from another working directory is supported.
+Soundfile reads mono/stereo WAV/FLAC; channels are averaged and scipy resamples to16kHz. Source choices: `zh en`; targets: `zh en ja ko fr de es ar th`. Equal source/target is rejected; omitted target selects English for Chinese source and Chinese for English source. `--seconds 25` limits input. `--realtime` paces capture; default file processing runs as fast as the runtime permits and is not a latency benchmark. Explicit relative paths use the invoking directory; default discovery is anchored to this application.
 
-Output is a JSON event stream: `input`, `source`, translation reset/queued/started/
-chunk/done events and a final `complete` record. `complete` contains the source
-text, paragraphs, completed translations and `source_conserved: true`. Model
-runtime diagnostics may be written separately by the installed vendor runtime.
-For the English internal verification recording, the first complete phrase is
-`In 2001, we introduced the first iPod.`; French output is `En 2001, nous avons lancé le premier iPod.` in the
-QCS8550 file-example verification. Outputs depend on the supplied
-recording, not a hard-coded transcript.
+Output is JSON events: `input`, `source`, translation reset/queued/started/chunk/done and final `complete`. Complete output contains `source_text`, `paragraphs`, ordered `translations` and `source_conserved`. Each translation retains original source, translation input, final text/status, timing/statistics and segment identity. Full finite-file results are accumulated independently of the256-row Web replay limit. Errors remain errors even after Web history would expire. Runtime diagnostics from external libraries may be written separately.
 
-Internal verification uses the same original recordings as the Web tests, with
-hashes and clip lengths in internal evidence. Those recordings are not bundled
-here and are not approved for external redistribution by this example. Provide
-your own authorized audio; external bundled experience media remain a release task.
+## Stop and release
+
+The command starts a lightweight native-free supervisor using the same stop-pipe boundary as the Web launcher. TERM/INT to that PID or its process group records one stop request. The model process ignores asynchronous OS stops, checks the pipe between synchronous operations, stops submission, closes/joins the translation owner and closes ASR. Loading is allowed to return its owned handle before release; stop latency includes the current native operation. No SDK call occurs in an async signal handler. A stopped file emits `file_stopped` and the command returns130 for INT or143 for TERM. It does not claim a complete transcript when cancelled.
+
+Use the foreground command or a dedicated process group so its supervisor can own cleanup; do not bypass it with an imported internal `main` function. Parent pipe EOF also requests ordinary model cleanup. SIGKILL cannot execute Python cleanup and is not an accepted graceful-stop path.
+
+## Existing native clients
+
+This composite defines no third SDK or C ABI. Use the independent [Audio8 C ABI/C++ guide](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/sdk/NATIVE_INTEGRATION.md) and [HY-MT2 C ABI guide](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/sdk/c-api.md), with their already delivered file clients and build commands. [API and ownership index](../docs/INTEGRATION.md).
+
+Input recordings are supplied by you under their own rights. The approved60-second screen recording remains in `docs/` with its [credits](../docs/MEDIA_ATTRIBUTION.md); it does not redistribute the original input lecture here.

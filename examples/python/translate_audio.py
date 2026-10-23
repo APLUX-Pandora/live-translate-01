@@ -17,7 +17,7 @@ os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 os.environ.setdefault('OMP_NUM_THREADS', '1')
 
 
-def main():
+def main(control):
     from languages import LANGUAGES, SOURCE_LANGUAGES, target_for
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('audio', type=Path)
@@ -41,7 +41,7 @@ def main():
     import soundfile as sf
     from scipy.signal import resample_poly
     from component_paths import configure
-    _, translation_root = configure()
+    _, translation_root = configure(a.translation_library)
     from audio8_asr import Engine, extra_file
     from model_paths import resolve_packages
     from paragraphs import ParagraphTracker
@@ -60,16 +60,22 @@ def main():
     if rate != 16000:
         divisor = gcd(rate, 16000)
         audio = resample_poly(audio, 16000//divisor, rate//divisor).astype(np.float32)
+    from file_results import FileResults
+    results = FileResults()
     output_lock = threading.Lock()
     def emit(event):
+        results.accept(event)
         with output_lock:
             print(json.dumps(event, ensure_ascii=False), flush=True)
 
     engine = service = None
     try:
+        control.check()
         service = TranslationService(paths[1], translation_root/'sdk/python', emit,
-                                     library=a.translation_library)
+                                     library=a.translation_library, stop_event=control.event)
+        control.check()
         engine = Engine(paths[0], clock_ms=160, lang=a.source)
+        control.check()
         engine.reset()
         policy = ResetPolicy(engine)
         gate = SileroGate(extra_file(paths[0], 'silero_vad'))
@@ -110,26 +116,32 @@ def main():
         start = time.monotonic()
         size = engine.samples_per_token
         for i in range(0, len(audio), size):
+            control.check()
             if a.realtime:
-                time.sleep(max(0, start+min(i+size,len(audio))/16000-time.monotonic()))
+                control.wait(start+min(i+size,len(audio))/16000-time.monotonic())
             samples = gate.process(audio[i:i+size])
             if i+size >= len(audio):
                 samples = np.concatenate([samples, gate.flush()])
             for j in range(0, len(samples), size):
+                control.check()
                 consume(policy.check(*gate.segment()))
                 tokens = engine.feed(samples[j:j+size])
                 policy.observe(tokens)
                 consume(tokens)
             submit(phrases.tick(min(i+size,len(audio))/16000))
+        control.check()
         consume(engine.finish())
+        control.check()
         accept(decoder.decode(b'', final=True), len(audio)/16000, 0, None)
         submit(phrases.finish())
         deadline = time.monotonic()+300
         while service.snapshot()['pending']:
+            control.check()
             if time.monotonic() >= deadline:
                 raise TimeoutError('Translation did not drain within 300 seconds')
-            time.sleep(.05)
-        snapshot = service.snapshot()
+            control.wait(.05)
+        control.check()
+        snapshot = {'segments': results.snapshot()}
         if any(row['status'] != 'done' for row in snapshot['segments']):
             raise RuntimeError('Translation failed; inspect the translation error events')
         if ''.join(source).strip() != ''.join(row['source_text'] for row in snapshot['segments']).strip():
@@ -145,5 +157,23 @@ def main():
                 engine.close()
 
 
+def entrypoint():
+    if 'LIVE_TRANSLATE_STOP_FD' not in os.environ:
+        from launch import supervise
+        return supervise(Path(__file__), sys.argv[1:], return_signal=True)
+    from file_control import FileControl, FileStopped
+    control = FileControl()
+    try:
+        try:
+            return main(control)
+        except (FileStopped, InterruptedError):
+            if not control.event.is_set():
+                raise
+            print(json.dumps({'file_stopped': True}), flush=True)
+            return 0
+    finally:
+        control.close()
+
+
 if __name__ == '__main__':
-    main()
+    raise SystemExit(entrypoint())

@@ -1,0 +1,13 @@
+# Web controls and media
+
+Run `bash demo/run.sh`; the model worker `demo/demo_server.py` is not the service entry point. The launcher accepts `--models`, `--translation-models`, `--translation-library`, `--media-dir` and `--port`. Package paths directly contain `manifest.json`. Explicit paths are strict; omitted paths discover one prepared package under the application's `models/asr` and `models/translation` containers. Multiple candidates require explicit selection. Normal installation reuses existing external packages instead of creating those containers.
+
+No input lecture videos are redistributed in this checkout. Upload your authorized video with its spoken language, or pass an existing media directory using `--media-dir`. Preserve each video's language sidecar JSON (`{"lang":"en"}` or `{"lang":"zh"}`). Uploads are written to the selected media directory's `uploads/` child; choose a writable directory. The approved README screen recording is a separate demonstration artifact, not an input lecture.
+
+Select English or Chinese source and a different target among Chinese, English, Japanese, Korean, French, German, Spanish, Arabic and Thai. Start captures browser playback as 16 kHz mono audio. HTTP playback uses the supported fallback when AudioWorklet is unavailable. Stop finishes accepted audio and pending translations. Language controls unlock after drain; seek/start creates a new session. Pause translation to continue ASR only, then resume to backfill retained pending phrases.
+
+English segmentation prefers complete sentences with bounded 24-second/512-character fallback. Chinese uses its 12-second/96-character policy. A conservative noun/file context rule changes ASR `read me` to `README` in translation input only; original source text is preserved. Runtime sampling follows the independent HY model package. The application does not implement token decoding or post-edit translation output.
+
+SSE readers have bounded queues; slow readers are disconnected and recover from a bounded replay snapshot. Completed translation replay is limited to 256 rows when possible, while pending work is retained. The browser owns its full displayed/exported transcript. Timing windows retain 200 inference steps and 240 system samples. Pending audio/work and complete client transcripts are intentional workload retention; they are separate from native-resource leak diagnosis.
+
+For service shutdown, send TERM/INT to the launcher supervisor PID or process group. Its stop pipe allows vendor initialization to finish before ordinary cancellation, caller joins and explicit SDK close. Repeated signals do not force destruction while native work is active. See [integration ownership](INTEGRATION.md).

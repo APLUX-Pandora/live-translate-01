@@ -1,43 +1,60 @@
 # Live Translate · APLUX Pandora
 
-Real-time transcription with Audio8-ASR-Infinite-160ms and streaming translation with HY-MT2-1.8B. This is a composite application, with no duplicate model SDK or model weights.
+Live transcription with Audio8-ASR-Infinite-160ms and streaming translation with Hy-MT2-1.8B. This application reuses the two independently installed SDKs and model packages.
 
-Application 0.1.1 independently reuses Audio8 SDK 0.6.1 and HY-MT2 SDK 0.2.1. HY-MT2 preserves the model-package sampler and explicit lifecycle cleanup.
+https://github.com/user-attachments/assets/e6dbe78c-361a-4c53-a936-f45483d19137
 
-## Install and reuse components
+[One-minute English-to-Chinese recording](docs/demo.mp4) · [Media credits](docs/MEDIA_ATTRIBUTION.md).
 
-Install [Audio8 ASR](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo) and [HY-MT2](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo) independently. Keep their SDK files, model packages, checksums and licenses in those installations. These private repositories require authorized access. Audio8 SDK 0.6.1 is the formally released static-ICU portability fix (install the independent Audio8 project at tag v0.6.1); install or reuse the independent HY-MT2 project at tag v0.2.1. Both component SDKs are formally published. Supply your existing HY-MT2 installation through HY_MT2_SDK_ROOT. No SDK or weights should be copied into this application.
+## 1. Install
 
-Use a separate project environment with Python 3.10 (tested). AidLite/QNN 2.48, AidGen and the board drivers are independent system prerequisites; video handling uses ffmpeg and ffprobe. Other Python minor versions are not execution-qualified by this check.
+Use Python 3.10 on a supported AidLux Linux AArch64 image with AidLite, AidGen and QNN 2.48 installed. Keep the separately installed [Audio8 SDK 0.6.1](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo) and [HY-MT2 SDK 0.2.1](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo).
 
 ```bash
+git clone https://github.com/APLUX-Pandora/live-translate-01.git
+cd live-translate-01
+sudo apt install python3-venv ffmpeg libsndfile1
 python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip setuptools
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
 export AUDIO8_SDK_ROOT=/path/to/audio8-asr-infinite-demo
 export HY_MT2_SDK_ROOT=/path/to/hy-mt2-1.8b-demo
-bash demo/run.sh --port 8766   --models /path/to/existing/audio8-package   --translation-models /path/to/existing/hy-mt2-package
 ```
 
-Each explicit model path must directly contain manifest.json. The Web and example share the component SDKs' resolver; defaults search models/asr and models/translation relative to this application and require a flat package or one unique immediate child. Default SDK roots are independently installed sibling checkouts with the names above. The default HY-MT2 library comes from its independently installed SDK. --translation-library is available for an explicit compatible library override; model files are unchanged.
+See [environment and validated scope](docs/ENVIRONMENT.md). Startup verifies the independent SDK files before importing them.
 
-Provide authorized media under demo/media, optionally as links to an existing independent media directory. Preserve each video's language sidecar JSON. Open http://<board-address>:8766/, select its spoken language and a different target language, then Start. Browser playback feeds 16 kHz mono PCM; HTTP fallback remains available. Stop drains accepted audio and translation. Use demo/run.sh as the service command and send SIGTERM/SIGINT to its supervisor PID or process group. The supervisor notifies the model process over a pipe so vendor initialization is not interrupted. The model process stops admission, cancels obsolete translation, joins callers, explicitly closes both engines and closes HTTP owners. demo_server.py is the internal worker, not the qualified service entry point.
+## 2. Reuse the model packages
 
-## One-minute demonstration
+Reuse the existing Audio8 **160ms QCS8550** and HY-MT2 **QCS8550** packages directly. For initial provisioning, follow the components' [ASR model guide](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/models/README.md) and [translation model/preparation guide](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/models/README.md).
 
-https://github.com/user-attachments/assets/e6dbe78c-361a-4c53-a936-f45483d19137
+Set the paths to their prepared package roots, each containing `manifest.json`:
 
-[Watch the one-minute recording](docs/demo.mp4) · [Original quality](docs/demo-original.mp4)
+```bash
+export ASR_MODELS=/path/to/existing/audio8-package
+export TRANSLATION_MODELS=/path/to/existing/hy-mt2-package
+```
 
-Recorded with application 0.1.1, Audio8 0.6.1 and HY-MT2 0.2.1: the built-in English video produces live transcription and Chinese translation on the board. Source: Lorna Mitchell, FOSDEM2025, *Beyond the README*, CC BY2.0 Belgium. See [attribution](docs/MEDIA_ATTRIBUTION.md).
+Keep one installation of each package. [Resource layout and local preparation](resources/README.md) explain raw downloads and other platforms.
 
-## Streaming behavior
+## 3. Run the Web Demo
 
-English phrases prefer complete sentences and preserve comparisons/subordinate clauses, with a bounded 24-second/512-character fallback. Chinese retains its 12-second/96-character policy. A conservative noun/file-context rule converts ASR `read me` to `README` only in the translation input; the original transcript is unchanged. Ordinary requests such as `Can you read me a story?` are preserved. False question punctuation after an unfinished transitive construction is held for its object, without deleting source text.
+```bash
+bash demo/run.sh --port 8766 \
+  --models "$ASR_MODELS" --translation-models "$TRANSLATION_MODELS"
+```
 
-Runtime sampling follows the encrypted model package and is reported by the HY-MT2 SDK. The application does not implement decoding or post-edit translated output.
+Open `http://<board-ip>:8766/`, upload your authorized video, choose its spoken language and a different translation target, then select **Start**. **Stop** drains accepted work. An existing media directory can be reused with `--media-dir /path/to/media`; see [Web controls](docs/WEB.md).
 
-SSE readers have bounded queues and are disconnected when slow; reconnection uses a bounded replay snapshot. Completed translation replay history is expired above 256 records when possible; pending work is retained. The live client owns its displayed/exported full transcript. Timing windows retain 200 steps and 240 system samples.
+## 4. Run a Python example
 
-See [standalone example](examples/README.md), [integration contract](docs/INTEGRATION.md), and [resource reuse](resources/README.md). Component SDK licenses and their separate release status remain applicable. No new HF repository or production website deployment is part of this release.
+```bash
+.venv/bin/python examples/python/translate_audio.py /path/to/authorized-audio.wav \
+  --source en --target zh --models "$ASR_MODELS" \
+  --translation-models "$TRANSLATION_MODELS"
+```
+
+See [file input, output and stopping](examples/README.md).
+
+## API reference and license
+
+[Python SDK and C ABI/C++ references](docs/INTEGRATION.md) · [Environment](docs/ENVIRONMENT.md) · [Licensing](LICENSING.md).

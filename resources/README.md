@@ -4,9 +4,8 @@ Install the component SDKs and model packages once, using their own GitHub/Model
 
 model-lock.json retains the exact original QCS8550/160 ms model-file identities used for this integration. Its current backing repositories preserve those same file identities; no duplicate model download is needed for existing verified installations. Runtime data are unchanged; preserve manifests, hashes and all package licenses. Other chip packages belong to their component projects and do not constitute composite inference qualification.
 
-## Backing-store migration
+## Preparing an existing HY raw package
 
+The raw `qnn236_*_cl4096` resources contain original graph shards, configuration and prefix cache; they do not include the SDK loading manifest. Follow the independent [HY model guide](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/models/README.md), using its own `demo/prepare_models.py` on that existing package. It verifies fixed resource identities and adds local loading metadata/licenses in place. Do not copy its installer into this application or download a second model. Already prepared packages can be reused directly.
 
-The fixed model lock now downloads unchanged inference bytes from the real-name private ModelFarm repositories. Local package paths and all 33 original runtime-file hashes remain unchanged. The downloader maps renamed remote files to their existing local names. Small original manifest/runtime/license/checksum files are retained under `resources/compatibility/`; they describe this existing SDK layout and are checked against the same lock. No weights or SDK binaries are added or updated.
-
-Normal model provisioning follows the independent Audio8 and HY-MT2 GitHub/MMS instructions. The fixed backing-store downloader is an optional authorized migration/verification tool; it requires private repository access. This metadata migration does not change the independent SDK release status or claim MMS availability.
+For Audio8, use the existing [160ms package guide](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/models/README.md).

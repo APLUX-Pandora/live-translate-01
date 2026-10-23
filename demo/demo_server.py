@@ -798,7 +798,7 @@ def main():
         TRANSLATION_LIBRARY = str(Path(a.translation_library).resolve(strict=True))
     from component_paths import configure
     try:
-        asr_root, translation_root = configure()
+        asr_root, translation_root = configure(a.translation_library)
     except ValueError as error:
         ap.error(str(error))
     TRANSLATION_SDK = str(translation_root/'sdk/python')

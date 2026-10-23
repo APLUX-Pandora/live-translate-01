@@ -40,4 +40,17 @@ Engine creation is protected from asynchronous stop interruption by blocking sto
 
 ASR-loading SIGTERM reproduced a QNN open-session failure and a process that failed to exit within 180 seconds. That failed owned test process required SIGKILL after its evidence was saved; it is not counted as a passing graceful exit. The installed component SDK bytes were not changed to hide the failure.
 
-The qualified run.sh entry now starts a lightweight native-free supervisor. It owns OS stop signals and writes a stop byte to the model process. The model process ignores OS SIGTERM/SIGINT and receives stop/parent-EOF through that pipe, allowing native initialization to finish and acquire its handle before cancellation/destruction. Both term/int ASR-loading preflights subsequently passed with 30-second DMA return. A final complete workload and exit matrix is running for this boundary. Do not bypass the supervisor in a service configuration.
+The qualified run.sh entry now starts a lightweight native-free supervisor. It owns OS stop signals and writes a stop byte to the model process. The model process ignores OS SIGTERM/SIGINT and receives stop/parent-EOF through that pipe, allowing native initialization to finish and acquire its handle before cancellation/destruction. Both term/int ASR-loading preflights subsequently passed with 30-second DMA return. The released Web boundary completed the recorded600-second/81-job workload and nine shutdown cases with DMA return. Those historical results apply to the matched runtime; they do not substitute for verification of a changed file application. Do not bypass the supervisor in a service configuration.
+
+## Canonical component references
+
+| Component | Complete Python API | C ABI, build and existing C++ client |
+|---|---|---|
+| Audio8 | [Python API](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/sdk/PYTHON_API.md) | [Native guide](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/sdk/NATIVE_INTEGRATION.md), [file client/CMake](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/tree/main/examples/cpp) |
+| HY-MT2 | [Python API](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/sdk/python-api.md) | [C ABI guide](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/sdk/c-api.md), [file client](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/examples/cpp/translate.cpp) |
+
+These independent references define complete parameter/field units, errors, state and threading contracts. This application adds scheduling and JSON events, not another SDK. Retain those SDK installations, native headers/libraries, model licenses and build instructions together. Runtime identities are checked from `demo/component-versions.json`; see [environment](ENVIRONMENT.md).
+
+## Finite-file ownership
+
+The file command also uses the native-free supervisor/pipe. Its ordinary owner checks stop requests between calls, stops admission and waits for translation cancellation/callers before explicitly closing both engines. The pipe receiver never calls native methods. It is separate from Web HTTP/session ownership and returns130/143 when the command is stopped. See [file example](../examples/README.md). Complete finite-file results are stored separately from bounded Web replay; no new model logic is introduced.
