@@ -1,0 +1,44 @@
+{
+  "format": 1,
+  "clocks": {
+    "160": {
+      "config": "160ms/frontend/config.json",
+      "rows_const": "160ms/frontend/rows_const.npy",
+      "mel_filters": "common/mel_filters.npy",
+      "token_bytes": "common/token_bytes.json",
+      "encoder": "160ms/encoder/encoder.serialized.bin.aidem",
+      "adapter": "160ms/encoder/adapter.serialized.bin.aidem",
+      "encoder_prefix_kv": "160ms/encoder/prefix_kv.bin",
+      "decoder_1": "160ms/decoder/part_1_of_2.serialized.bin.aidem",
+      "decoder_2": "160ms/decoder/part_2_of_2.serialized.bin.aidem",
+      "decoder_prefix_kv_zh": "160ms/decoder/prefix_kv_zh.bin",
+      "decoder_prefix_kv_en": "160ms/decoder/prefix_kv_en.bin",
+      "embedding": "common/embedding.npy",
+      "rotation": "common/rotation.npy",
+      "vad_W": "common/vad/W.npy",
+      "vad_b": "common/vad/b.npy",
+      "vad_meta": "common/vad/meta.json"
+    },
+    "80": {
+      "config": "80ms/frontend/config.json",
+      "rows_const": "80ms/frontend/rows_const.npy",
+      "mel_filters": "common/mel_filters.npy",
+      "token_bytes": "common/token_bytes.json",
+      "encoder": "80ms/encoder/encoder.serialized.bin.aidem",
+      "adapter": "80ms/encoder/adapter.serialized.bin.aidem",
+      "encoder_prefix_kv": "80ms/encoder/prefix_kv.bin",
+      "decoder_1": "80ms/decoder/part_1_of_2.serialized.bin.aidem",
+      "decoder_2": "80ms/decoder/part_2_of_2.serialized.bin.aidem",
+      "decoder_prefix_kv_zh": "80ms/decoder/prefix_kv_zh.bin",
+      "decoder_prefix_kv_en": "80ms/decoder/prefix_kv_en.bin",
+      "embedding": "common/embedding.npy",
+      "rotation": "common/rotation.npy",
+      "vad_W": "common/vad/W.npy",
+      "vad_b": "common/vad/b.npy",
+      "vad_meta": "common/vad/meta.json"
+    }
+  },
+  "extras": {
+    "silero_vad": "common/silero_vad.onnx"
+  }
+}

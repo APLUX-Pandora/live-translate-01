@@ -1,0 +1,27 @@
+Live Transcribe 01 model packages
+================================
+
+This distribution contains quantized NPU context binaries, host-side tensors and
+Silero VAD v5. The inference SDK, application code and demonstration media are
+distributed separately and are not included in these model folders.
+
+Licensing boundaries
+--------------------
+Upstream model weights, tensors and third-party components retain their applicable
+licenses and rights. The Pandora agreement covers only proprietary contributions
+that APLUX has the right to license; it does not replace upstream terms or remove
+existing rights. Retain this notice and all supplied license texts with the package.
+See LICENSE and LICENSES/Apache-2.0.txt for the applicable license texts, and
+LICENSES/Pandora-Model-SDK.zh-CN.txt and LICENSES/Pandora-Model-SDK.en.txt for the
+scoped APLUX agreement.
+
+Silero VAD v5
+-------------
+Silero VAD v5 is a third-party model under MIT, not proprietary APLUX material.
+Source: https://github.com/snakers4/silero-vad
+Full license and copyright: LICENSES/Silero-VAD-MIT.txt
+
+Runtime (not distributed)
+-------------------------
+AidLite and Qualcomm QNN / QAIRT runtimes are installed separately and retain
+their own terms.

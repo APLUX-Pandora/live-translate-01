@@ -4,8 +4,8 @@
   "asr_clock_ms": 160,
   "components": {
     "asr": {
-      "repository": "APLUX-Pandora/live-transcribe-01",
-      "revision": "7c7f9bf118e19f596c611202bd065c1af0997cb9",
+      "repository": "APLUX-GenAI4/Audio8-ASR-Infinite-160ms",
+      "revision": "16248e160bc59cc9ad42dc1670905c2e3b64c07b",
       "remote_prefix": "qnn248_qcs8550",
       "local_directory": "asr/qnn248_qcs8550",
       "private": true,
@@ -35,12 +35,41 @@
         "common/vad/b.npy": "93327325abebf6318e47629592dca0c90881431d46ec6ba2bcd5bf5fa3162025",
         "common/vad/meta.json": "09dd65ff1281bc41159250389d5d34fe6e5b05bea29ec5784ab0f8f4de2ced97",
         "manifest.json": "0d5a6d38b78a07902aa837ddb64dd410f59204fa5d9d2f8cb9e3a7f6973faf00"
+      },
+      "remote_files": {
+        "160ms/decoder/part_1_of_2.serialized.bin.aidem": "160ms/decoder/part_1_of_2.serialized.bin.aidem",
+        "160ms/decoder/part_2_of_2.serialized.bin.aidem": "160ms/decoder/part_2_of_2.serialized.bin.aidem",
+        "160ms/decoder/prefix_kv_en.bin": "160ms/decoder/prefix_kv_en.bin",
+        "160ms/decoder/prefix_kv_zh.bin": "160ms/decoder/prefix_kv_zh.bin",
+        "160ms/encoder/adapter.serialized.bin.aidem": "160ms/encoder/adapter.serialized.bin.aidem",
+        "160ms/encoder/encoder.serialized.bin.aidem": "160ms/encoder/encoder.serialized.bin.aidem",
+        "160ms/encoder/prefix_kv.bin": "160ms/encoder/prefix_kv.bin",
+        "160ms/frontend/config.json": "160ms/frontend/config.json",
+        "160ms/frontend/rows_const.npy": "160ms/frontend/rows_const.npy",
+        "LICENSE": "LICENSE",
+        "LICENSES/Apache-2.0.txt": "LICENSES/Apache-2.0.txt",
+        "LICENSES/Pandora-Model-SDK.en.txt": "LICENSES/Pandora-Model-SDK.en.txt",
+        "LICENSES/Pandora-Model-SDK.zh-CN.txt": "LICENSES/Pandora-Model-SDK.zh-CN.txt",
+        "common/embedding.npy": "common/embedding.npy",
+        "common/mel_filters.npy": "common/mel_filters.npy",
+        "common/rotation.npy": "common/rotation.npy",
+        "common/silero_vad.onnx": "common/silero_vad.onnx",
+        "common/token_bytes.json": "common/token_bytes.json",
+        "common/vad/W.npy": "common/vad/W.npy",
+        "common/vad/b.npy": "common/vad/b.npy",
+        "common/vad/meta.json": "common/vad/meta.json"
+      },
+      "bundled_files": {
+        "LICENSES/Silero-VAD-MIT.txt": "resources/compatibility/asr/LICENSES/Silero-VAD-MIT.txt",
+        "NOTICE": "resources/compatibility/asr/NOTICE",
+        "SHA256SUMS": "resources/compatibility/asr/SHA256SUMS",
+        "manifest.json": "resources/compatibility/asr/manifest.json"
       }
     },
     "translation": {
-      "repository": "APLUX-Pandora/multilingual-translation-01",
-      "revision": "b42fd6b49d5349c150f69cbbcdb370c94881a999",
-      "remote_prefix": "qcs8550",
+      "repository": "APLUX-GenAI/Hy-MT2-1.8B",
+      "revision": "25139aca03c874d1951256f0753f1945a13ba3cf",
+      "remote_prefix": "qnn236_qcs8550_cl4096",
       "local_directory": "translation/qcs8550",
       "private": true,
       "files": {
@@ -52,6 +81,18 @@
         "graphs/model-2.aidem": "9d494eda384e58246033df1c68d77970f3f1d4ef702778a8529dc4d0bddbb1cb",
         "manifest.json": "6aec3a355fea10fd6bb9223c673035c7f2e253fbc117ace79e6c07e1be1da112",
         "runtime.json": "cecd8b6f6d78adbfe26868912d6fe4f1ade4a337766092cbe7fb9520d068fc37"
+      },
+      "remote_files": {
+        "cache/prefix.bin": "prefix-kvcache/kv-cache.primary.qnn-htp",
+        "graphs/model-0.aidem": "hy-mt2-1.8b_qnn236_qcs8550_cl4096_1_of_3.serialized.bin.aidem",
+        "graphs/model-1.aidem": "hy-mt2-1.8b_qnn236_qcs8550_cl4096_2_of_3.serialized.bin.aidem",
+        "graphs/model-2.aidem": "hy-mt2-1.8b_qnn236_qcs8550_cl4096_3_of_3.serialized.bin.aidem"
+      },
+      "bundled_files": {
+        "LICENSES/Model-license.txt": "resources/compatibility/translation/LICENSES/Model-license.txt",
+        "SHA256SUMS": "resources/compatibility/translation/SHA256SUMS",
+        "manifest.json": "resources/compatibility/translation/manifest.json",
+        "runtime.json": "resources/compatibility/translation/runtime.json"
       }
     }
   }

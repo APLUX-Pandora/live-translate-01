@@ -13,8 +13,8 @@ paragraphs and timestamps. Short translation tasks stream into each paragraph.
 - A standalone Python audio example using the same delivered component SDKs.
 
 The application reuses existing transcription and translation packages from
-[Live Transcribe 01](https://huggingface.co/APLUX-Pandora/live-transcribe-01) and
-[Multilingual Translation 01](https://huggingface.co/APLUX-Pandora/multilingual-translation-01).
+[Live Transcribe 01](https://huggingface.co/APLUX-GenAI4/Audio8-ASR-Infinite-160ms) and
+[Multilingual Translation 01](https://huggingface.co/APLUX-GenAI/Hy-MT2-1.8B).
 No separate model repository is required. Repository access is required to download
 the current model packages. Supply an audio/video file you are authorized to use;
 input lecture files are not bundled with the application.
@@ -56,7 +56,7 @@ python3 -m venv .venv
 ```
 
 The downloader uses fixed revisions and validates hashes before reusing local files
-or completing downloads. It preserves both original model repositories. The layout
+or completing downloads. It uses the current private ModelFarm backing repositories. The layout
 is `models/asr/qnn248_qcs8550/manifest.json` and
 `models/translation/qcs8550/manifest.json`. See [model resources](resources/README.md).
 

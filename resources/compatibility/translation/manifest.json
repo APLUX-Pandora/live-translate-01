@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "config": "runtime.json",
+  "backend": "qnn248",
+  "files": [
+    "graphs/model-0.aidem",
+    "graphs/model-1.aidem",
+    "graphs/model-2.aidem",
+    "cache/prefix.bin",
+    "runtime.json"
+  ],
+  "package_kind": "public-model-package"
+}

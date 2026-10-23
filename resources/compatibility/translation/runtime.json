@@ -1,0 +1,11 @@
+{
+  "backend_type": "genie",
+  "prefix_path": "cache/prefix.bin",
+  "model": {
+    "path": [
+      "graphs/model-0.aidem",
+      "graphs/model-1.aidem",
+      "graphs/model-2.aidem"
+    ]
+  }
+}

@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import urllib.parse
 import urllib.request
@@ -53,7 +54,22 @@ def main():
             if a.verify_only:
                 raise RuntimeError(f'Missing or mismatched file: {path}')
             path.parent.mkdir(parents=True,exist_ok=True)
-            url=f"https://huggingface.co/{item['repository']}/resolve/{item['revision']}/{item['remote_prefix']}/{name}"
+            bundled = item.get('bundled_files', {}).get(name)
+            if bundled is not None:
+                source_relative = Path(bundled)
+                if source_relative.is_absolute() or '..' in source_relative.parts:
+                    raise ValueError('Unsafe bundled metadata path in model lock')
+                source = ROOT / source_relative
+                if digest(source) != expected:
+                    raise RuntimeError(f'Bundled metadata checksum mismatch: {name}')
+                shutil.copyfile(source, path)
+                total += 1
+                continue
+            remote_name = item.get('remote_files', {}).get(name, name)
+            remote_relative = Path(remote_name)
+            if remote_relative.is_absolute() or '..' in remote_relative.parts:
+                raise ValueError('Unsafe remote path in model lock')
+            url=f"https://huggingface.co/{item['repository']}/resolve/{item['revision']}/{item['remote_prefix']}/{remote_name}"
             headers={}
             if os.environ.get('HF_TOKEN'):
                 headers['Authorization']='Bearer '+os.environ['HF_TOKEN']

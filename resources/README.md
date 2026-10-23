@@ -28,3 +28,9 @@ The current lock and composite verification cover QCS8550 with the 160 ms ASR
 clock. Other component variants are not composite qualification evidence.
 Package-level LICENSE/NOTICE files remain with each package. Existing signed SDK
 manifests apply only to their original component releases, not to this application.
+
+## Backing-store migration
+
+The fixed model lock now downloads unchanged inference bytes from the real-name private ModelFarm repositories. Local package paths and all 33 original runtime-file hashes remain unchanged. The downloader maps renamed remote files to their existing local names. Small original manifest/runtime/license/checksum files are retained under `resources/compatibility/`; they describe this existing SDK layout and are checked against the same lock. No weights or SDK binaries are added or updated.
+
+Normal model provisioning follows the independent Audio8 and HY-MT2 GitHub/MMS instructions. The fixed backing-store downloader is an optional authorized migration/verification tool; it requires private repository access. This change does not promote the pending translation-quality SDK candidate or claim MMS availability.
