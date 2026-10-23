@@ -26,7 +26,7 @@ Provide authorized media under demo/media, optionally as links to an existing in
 
 ## One-minute demonstration
 
-[![English-to-Chinese live demonstration](docs/poster.png)](docs/demo.mp4)
+https://github.com/user-attachments/assets/e6dbe78c-361a-4c53-a936-f45483d19137
 
 [Watch the one-minute recording](docs/demo.mp4) · [Original quality](docs/demo-original.mp4)
 
