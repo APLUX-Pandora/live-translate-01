@@ -1,17 +1,38 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "components": {
     "asr": {
-      "repository": "https://github.com/APLUX-Pandora/audio8-asr-infinite-demo",
-      "sdk_version": "0.6.1",
-      "library_sha256": "7b1dfc1d1cf1b2959dfd7c013c73eb89665f720f3c927c6b89afe92b022e1e40",
-      "binding_sha256": "5b1751a87155c657658d606d924a022c2afdd09ef761c063b916efe7b7cd800e"
+      "repository": "https://github.com/APLUX-Pandora/audio8-asr-infinite-demo.git",
+      "path": "components/asr",
+      "sdk_version": "0.7.0",
+      "git_tag": "v0.7.0",
+      "tag_commit": "f1ba33fac0d1fab19e00c4f40b78424260877e98",
+      "commit": "4f5ac9a7c638851dc9f383d2c0c96a1682cad2c1",
+      "runtime_files": {
+        "sdk/python/_audio8_stream_native.py": "ef3f3581dda0db5332c2770652a52c1e8a42c5bb82116f63a62d1a12f091a01a",
+        "sdk/python/audio8_asr.py": "f2aaf2fb4f76e071b50e5b11a2351c6dc9817e39251f5e944b4601bd690d193b",
+        "sdk/python/audio8_asr_audio.py": "b527ba5bbc19b4a7375f0faf904f1c7577e11c14e59dfedf7d0622a3f514abac",
+        "sdk/python/audio8_asr_types.py": "43687e1a47b26a34775729b8a5cd7b834f54604aabfb1203c81ccd40ab3c582e",
+        "sdk/lib/libaudio8_asr.so": "21d8381b323f6a4f341363892a65ff9904568f879e3c5174d59c9aba1f43cc67"
+      },
+      "binding_sha256": "f2aaf2fb4f76e071b50e5b11a2351c6dc9817e39251f5e944b4601bd690d193b",
+      "library_sha256": "21d8381b323f6a4f341363892a65ff9904568f879e3c5174d59c9aba1f43cc67"
     },
     "translation": {
-      "repository": "https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo",
-      "sdk_version": "0.2.1",
-      "library_sha256": "695f6846507c51ff20b61430cb17c26b176edf8edf1f79319662f3298128922a",
-      "binding_sha256": "52242c7fed7008cf861a10af1047fbc911057312dc5d3834e254e1ccae2722ba"
+      "repository": "https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo.git",
+      "path": "components/translation",
+      "sdk_version": "0.3.0",
+      "git_tag": "v0.3.0",
+      "tag_commit": "f7137882ba2c851bb61ea7db44c28d1c06b80827",
+      "commit": "478ea65184e62d931c00adfeca0ae5e23fd0a88a",
+      "runtime_files": {
+        "sdk/python/hy_mt2.py": "4f453905f5ac23e89a9326b819f8de5371ea43929e1d497948f0f0eac16e1607",
+        "sdk/python/hy_mt2_generation.py": "47a2b592ca22a716816e6529d403da25d3cb61219dad0a7ff5cacbab1fea6fd5",
+        "sdk/python/hy_mt2_llm.py": "a70bdc7f87c67e8ad6fac658ec777caf61feed1fdf298a69904660a1b5008bcc",
+        "sdk/lib/libhy_mt2.so": "5834012a5ef965d0becaf5926af54b877e7a8b45da044dbbe12b2dd16bf13e21"
+      },
+      "binding_sha256": "4f453905f5ac23e89a9326b819f8de5371ea43929e1d497948f0f0eac16e1607",
+      "library_sha256": "5834012a5ef965d0becaf5926af54b877e7a8b45da044dbbe12b2dd16bf13e21"
     }
   }
 }

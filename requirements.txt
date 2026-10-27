@@ -1,3 +1,4 @@
+# Shared application environment for CPython3.10,3.11,3.12; component Web dependencies are not needed.
 numpy==1.26.4
 soundfile==0.13.1
 scipy==1.15.3

@@ -1,9 +1,10 @@
-"""Locate independently installed component SDKs; never copy their implementations."""
+"""Locate and verify the fixed component submodules before importing their SDKs."""
 import hashlib
 import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,11 +24,19 @@ def sdk_roots(translation_library=None):
         ('AUDIO8_SDK_ROOT', 'audio8-asr-infinite-demo', 'audio8_asr.py', 'libaudio8_asr.so'),
         ('HY_MT2_SDK_ROOT', 'hy-mt2-1.8b-demo', 'hy_mt2.py', 'libhy_mt2.so'),
     ]:
-        root = Path(os.environ.get(variable, ROOT.parent / name)).expanduser().resolve()
-        if not (root/'sdk/python'/module).is_file() or not (root/'sdk/lib'/library).is_file():
-            raise ValueError(f'Install {name} independently and set {variable} to its checkout root: {root}')
         role = 'asr' if variable == 'AUDIO8_SDK_ROOT' else 'translation'
         expected = contract[role]
+        root = Path(os.environ.get(variable, ROOT / expected.get('path', 'components/'+role))).expanduser().resolve()
+        if not (root/'sdk/python'/module).is_file() or not (root/'sdk/lib'/library).is_file():
+            raise ValueError(f'Missing component {name}: {root}; run git submodule update --init --recursive')
+        if expected.get('commit'):
+            if not (root/'.git').exists():
+                raise ValueError(f'Initialize the component submodule: {root}')
+            actual = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
+            if actual != expected['commit']:
+                raise ValueError(f'Wrong component commit: {root}; run git submodule update --init --recursive')
+        for relative, digest in expected.get('runtime_files', {}).items():
+            verify_file(root/relative, digest)
         verify_file(root/'sdk/python'/module, expected['binding_sha256'])
         verify_file(root/'sdk/lib'/library, expected['library_sha256'])
         if role == 'asr' and os.environ.get('AUDIO8_ASR_LIB'):

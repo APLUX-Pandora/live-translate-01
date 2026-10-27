@@ -1,6 +1,6 @@
 # Finite-file Python integration
 
-Run the file example through this application's `.venv/bin/python`, with the independent SDK roots and existing prepared model roots from the main README. No HTTP service or browser is involved; the same ASR/translation SDKs and business segmentation are reused.
+Run the file example through this application's `.venv/bin/python`, with the initialized component submodules and prepared model roots from the main README. No HTTP service or browser is involved; the same ASR/translation SDKs and business segmentation are reused.
 
 ```bash
 .venv/bin/python examples/python/translate_audio.py /path/to/audio.wav \
@@ -14,7 +14,7 @@ Output is JSON events: `input`, `source`, translation reset/queued/started/chunk
 
 ## Stop and release
 
-The command starts a lightweight native-free supervisor using the same stop-pipe boundary as the Web launcher. TERM/INT to that PID or its process group records one stop request. The model process ignores asynchronous OS stops, checks the pipe between synchronous operations, stops submission, closes/joins the translation owner and closes ASR. Loading is allowed to return its owned handle before release; stop latency includes the current native operation. No SDK call occurs in an async signal handler. A stopped file emits `file_stopped` and the command returns130 for INT or143 for TERM. It does not claim a complete transcript when cancelled.
+The command starts a lightweight native-free supervisor using the same stop-pipe boundary as the Web launcher. TERM/INT to that PID or its process group records one stop request. The model process ignores asynchronous OS stops, checks the pipe between synchronous operations, stops submission, closes/joins the translation owner and closes the ASR recording before its model. Loading is allowed to return its owned handle before release; stop latency includes the current native operation. No SDK call occurs in an async signal handler. A stopped file emits `file_stopped` and the command returns130 for INT or143 for TERM. It does not claim a complete transcript when cancelled.
 
 Use the foreground command or a dedicated process group so its supervisor can own cleanup; do not bypass it with an imported internal `main` function. Parent pipe EOF also requests ordinary model cleanup. SIGKILL cannot execute Python cleanup and is not an accepted graceful-stop path.
 

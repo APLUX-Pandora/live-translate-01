@@ -1,6 +1,6 @@
 # Live Translate · APLUX Pandora
 
-Live transcription with Audio8-ASR-Infinite-160ms and streaming translation with Hy-MT2-1.8B. This application reuses the two independently installed SDKs and model packages.
+Live transcription with Audio8-ASR-Infinite-160ms and streaming translation with Hy-MT2-1.8B. This application reuses the two fixed component submodules and model packages.
 
 https://github.com/user-attachments/assets/e6dbe78c-361a-4c53-a936-f45483d19137
 
@@ -8,20 +8,18 @@ https://github.com/user-attachments/assets/e6dbe78c-361a-4c53-a936-f45483d19137
 
 ## 1. Install
 
-Use Python 3.10 on a supported AidLux Linux AArch64 image with AidLite, AidGen and QNN 2.48 installed. Keep the separately installed [Audio8 SDK 0.6.1](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo) and [HY-MT2 SDK 0.2.1](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo).
+Use Python 3.10, 3.11 or 3.12 on a supported AidLux Linux AArch64 image with AidLite, AidGen and QNN 2.48 installed. The pinned components are [Audio8 SDK 0.7.0](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo) and [HY-MT2 SDK 0.3.0](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo).
 
 ```bash
-git clone https://github.com/APLUX-Pandora/live-translate-01.git
+git clone --recurse-submodules https://github.com/APLUX-Pandora/live-translate-01.git
 cd live-translate-01
 sudo apt install python3-venv ffmpeg libsndfile1
-python3 -m venv .venv
+python3.10 -m venv .venv  # or python3.11 / python3.12
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
-export AUDIO8_SDK_ROOT=/path/to/audio8-asr-infinite-demo
-export HY_MT2_SDK_ROOT=/path/to/hy-mt2-1.8b-demo
 ```
 
-See [environment and validated scope](docs/ENVIRONMENT.md). Startup verifies the independent SDK files before importing them.
+For an existing checkout, run `git submodule update --init --recursive`. Component versions are fixed by this repository; installation never follows their latest main. See [environment and validated scope](docs/ENVIRONMENT.md). Startup verifies component commits and runtime files before importing them.
 
 ## 2. Reuse the model packages
 

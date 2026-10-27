@@ -159,7 +159,12 @@ class Session:
 
     def load_engine(self):
         t = time.time()
-        self.asr = Engine(MODELS, clock_ms=int(self.clock), lang=self.lang)
+        self.model = ASRModel.from_pretrained(MODELS, clock_ms=int(self.clock))
+        try:
+            self.asr = self.model.create_stream(sample_rate=16000, language=self.lang)
+        except BaseException:
+            self.model.close()
+            raise
         self.policy = ResetPolicy(self.asr)
         self.init_s = time.time() - t
         self.fs = self.asr.sampling_rate
@@ -171,6 +176,9 @@ class Session:
         if self.asr is not None:
             self.asr.close()
         self.asr = None
+        if getattr(self, 'model', None) is not None:
+            self.model.close()
+            self.model = None
 
     # ------------------------------------------------------------ events
     def broadcast(self, ev):
@@ -452,7 +460,10 @@ class Session:
                 continue
             asr = self.asr
             if state == "reset":
-                asr.reset(); self.policy.reset(); self.gate.reset(); self.n_gen = 0
+                asr.close()
+                self.asr = asr = self.model.create_stream(sample_rate=16000, language=self.lang)
+                self.policy = ResetPolicy(asr)
+                self.gate.reset(); self.n_gen = 0
                 self.worker_sid = sid
                 self.segmenter = Segmenter(self.lang, asr.info["num_delay_tokens"])
                 self.paragraph_tracker = ParagraphTracker(asr.info["num_delay_tokens"], **self.paragraph_options)
@@ -486,7 +497,8 @@ class Session:
                 t = time.time()
                 chunk, pend = pend[:self.spt], pend[self.spt:]
                 toks = self.policy.check(*self.gate.segment())    # soft-reset trigger (business layer) before the next row
-                new = asr.feed(chunk)
+                asr.feed(chunk)
+                new = list(asr.last_tokens)
                 self.policy.observe(new)
                 toks += new
                 fed += chunk.size
@@ -499,7 +511,11 @@ class Session:
             elif ended and flushed:
                 done, reason = True, "end"
             if done:
-                toks = asr.finish()
+                if fed:
+                    asr.finish()
+                    toks = list(asr.last_tokens)
+                else:
+                    toks = []
                 self.policy.observe(toks)
                 self.emit(toks, dec, fed, steps, first_char, final=True, eot=self.eot(toks))
                 with self.lock:
@@ -784,7 +800,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global S, MODELS, TRANSLATION_MODELS, TRANSLATION_LIBRARY, TRANSLATION_SDK, Engine, LT01Error, extra_file
+    global S, MODELS, TRANSLATION_MODELS, TRANSLATION_LIBRARY, TRANSLATION_SDK, ASRModel, LT01Error, extra_file
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--models", default=os.environ.get("LT01_MODELS"),
@@ -802,13 +818,13 @@ def main():
     except ValueError as error:
         ap.error(str(error))
     TRANSLATION_SDK = str(translation_root/'sdk/python')
-    from audio8_asr import Engine, A8Error, extra_file
-    LT01Error = A8Error
+    from audio8_asr import ASRModel, ASRError, extra_file
+    LT01Error = ASRError
     from hy_mt2 import TranslationError
     from model_paths import resolve_packages
     try:
         MODELS, TRANSLATION_MODELS = resolve_packages(a.models, a.translation_models)
-    except (LT01Error, TranslationError) as error:
+    except (LT01Error, TranslationError, ValueError, OSError) as error:
         ap.error(str(error))
     global MEDIA, UPLOADS
     if a.media_dir:

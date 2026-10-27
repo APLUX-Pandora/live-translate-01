@@ -1,22 +1,13 @@
-# Application environment and component pairing
+# Environment and fixed components
 
-Use an independent project `.venv`, created on the board with Python 3.10. The qualified QCS8550 snapshot uses Ubuntu 22.04, AidLite 2.5.0.284, AidGen 2.4.4 and QNN 2.48. `ffmpeg` and `ffprobe` are system media prerequisites, separate from the Python requirements and native SDK dependencies. Install the platform vendor packages through the independent component guides; do not replace a shared board runtime for this application.
+Use CPython3.10,3.11 or3.12 with a separate clean project venv for the selected interpreter. The component SDKs support these versions; this updated composite still requires its own integration/board qualification. Earlier application qualification applies only to its old component pairing.
 
-The launcher resolves this project's `.venv/bin/python` from its absolute checkout location. No shell activation or global Python fallback is used. The file example runs through that same interpreter. Set `AUDIO8_SDK_ROOT` and `HY_MT2_SDK_ROOT` to the separately installed component repositories, not their venvs.
+The target is supported AidLux Linux AArch64 with the components' AidLite/AidGen/QNN prerequisites. Existing QCS8550 qualification used Ubuntu22.04 and QNN2.48. Do not replace shared board runtimes. ffmpeg/ffprobe and libsndfile are system prerequisites; venv does not isolate NPU, drivers or native runtime libraries.
 
-`demo/component-versions.json` records the qualified component versions, binding/library SHA256 and canonical repositories. Both Web and file entry points verify those files before SDK import. Current native identities:
+Audio8 SDK0.7.0 and HY-MT2 SDK0.3.0 are referenced by Git submodules under `components/asr` and `components/translation`. Exact commits, formal tags and runtime hashes are recorded in `demo/component-versions.json`. The pinned commits include post-release Python-version documentation; all recorded runtime files match the corresponding formal release tag byte-for-byte.
 
-- Audio8 SDK 0.6.1: `7b1dfc1d1cf1b2959dfd7c013c73eb89665f720f3c927c6b89afe92b022e1e40`.
-- HY-MT2 SDK 0.2.1: `695f6846507c51ff20b61430cb17c26b176edf8edf1f79319662f3298128922a`.
+Clone with `--recurse-submodules`. For an existing checkout run `git submodule update --init --recursive`; do not use `--remote` during installation. No separate component venv or SDK-root environment variable is required. Unset obsolete `AUDIO8_SDK_ROOT`/`HY_MT2_SDK_ROOT` overrides; intentional overrides must match the fixed commit and runtime bytes. `AUDIO8_ASR_LIB` and the diagnostic `--translation-library` cannot substitute an unmatched binary.
 
-Leave `AUDIO8_ASR_LIB` unset, or point it to the selected Audio8 checkout's own library. An unrelated override is rejected. `--translation-library` is a diagnostic override and must have the same qualified native hash; it does not authorize a new SDK candidate. Component documentation/example-only updates are compatible when these runtime bytes still match. A native/binding change requires separate composition qualification and a deliberate contract update.
+README, example and Web launcher use this project's selected `.venv/bin/python`, with no system-Python fallback. requirements.txt is the single install entry for the actual composite dependencies; component Web-server dependencies are not required by this application.
 
-## Same owned SDK files across Ubuntu versions
-
-| System / architecture | Existing component evidence | Hardware scope |
-|---|---|---|
-| Ubuntu 22.04 arm64 | Same-file ABI/userspace and QCS8550 inference/lifecycle | Recorded QCS8550 only |
-| Ubuntu 24.04 arm64 | Same-file ABI/userspace/loader checks | Separate BSP/NPU untested |
-| Ubuntu 26.04 arm64 | Same-file ABI/userspace/loader checks | Separate BSP/NPU untested |
-
-This application adds no native inference SDK. Audio8 embeds ICU 70.1 code/data; HY tokenization uses the independently installed AidGen runtime. See the [Audio8 environment](https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/sdk/README.md) and [HY environment](https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo/blob/main/sdk/environment.md). These component checks do not guarantee every external BSP/vendor runtime on every Ubuntu release. No per-system SDK build or obsolete system ICU installation is needed by this application.
+Python-version support and Ubuntu/BSP/NPU qualification are separate. No new Ubuntu24/26 or other-chip qualification is claimed. Model packages remain separate; reuse matching prepared resources following each component's model guide.

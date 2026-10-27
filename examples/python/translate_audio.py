@@ -42,7 +42,7 @@ def main(control):
     from scipy.signal import resample_poly
     from component_paths import configure
     _, translation_root = configure(a.translation_library)
-    from audio8_asr import Engine, extra_file
+    from audio8_asr import ASRModel, extra_file
     from model_paths import resolve_packages
     from paragraphs import ParagraphTracker
     from reset_policy import ResetPolicy
@@ -68,15 +68,15 @@ def main(control):
         with output_lock:
             print(json.dumps(event, ensure_ascii=False), flush=True)
 
-    engine = service = None
+    model = engine = service = None
     try:
         control.check()
         service = TranslationService(paths[1], translation_root/'sdk/python', emit,
                                      library=a.translation_library, stop_event=control.event)
         control.check()
-        engine = Engine(paths[0], clock_ms=160, lang=a.source)
+        model = ASRModel.from_pretrained(paths[0], clock_ms=160)
+        engine = model.create_stream(sample_rate=16000, language=a.source)
         control.check()
-        engine.reset()
         policy = ResetPolicy(engine)
         gate = SileroGate(extra_file(paths[0], 'silero_vad'))
         phrases = Segmenter(a.source, engine.info['num_delay_tokens'])
@@ -85,6 +85,7 @@ def main(control):
         service.begin(1, a.source, target)
         paragraph_id = None
         count = 0
+        supplied = 0
         source = []
         horizon = min(range(len(engine.info['eot_horizons_s'])), key=lambda i: abs(engine.info['eot_horizons_s'][i]-1.0))
         paragraph_horizon = min(range(len(engine.info['eot_horizons_s'])), key=lambda i: abs(engine.info['eot_horizons_s'][i]-2.0))
@@ -125,12 +126,16 @@ def main(control):
             for j in range(0, len(samples), size):
                 control.check()
                 consume(policy.check(*gate.segment()))
-                tokens = engine.feed(samples[j:j+size])
+                engine.feed(samples[j:j+size])
+                supplied += len(samples[j:j+size])
+                tokens = list(engine.last_tokens)
                 policy.observe(tokens)
                 consume(tokens)
             submit(phrases.tick(min(i+size,len(audio))/16000))
         control.check()
-        consume(engine.finish())
+        if supplied:
+            engine.finish()
+            consume(engine.last_tokens)
         control.check()
         accept(decoder.decode(b'', final=True), len(audio)/16000, 0, None)
         submit(phrases.finish())
@@ -153,8 +158,12 @@ def main(control):
             if service:
                 service.close()
         finally:
-            if engine:
-                engine.close()
+            try:
+                if engine:
+                    engine.close()
+            finally:
+                if model:
+                    model.close()
 
 
 def entrypoint():

@@ -9,13 +9,14 @@ import sys
 import threading
 import time
 from translation_input import translation_input
+from languages import LANGUAGES, target_for
 
 
 def _worker(commands, events, model_dir, sdk_dir, library=None):
     sys.path.insert(0, sdk_dir)
-    from hy_mt2 import Translator
+    from hy_mt2 import LLMModel
     try:
-        engine = Translator(model_dir, library=library)
+        engine = LLMModel.from_pretrained(model_dir, library=library, max_input_tokens=512)
     except Exception as exc:
         events.put({"kind": "load_error", "error": str(exc)})
         return
@@ -50,16 +51,29 @@ def _worker(commands, events, model_dir, sdk_dir, library=None):
                 send("chunk", task, piece=piece, elapsed_ms=1000*(now-start))
 
             try:
-                # Prompt construction, tokenization and model execution stay in SDK.
-                if engine.count_prompt_tokens(task["text"], task["source"], task["target"]) > 512:
+                # Translation instructions are application policy, not an LLM API.
+                target = target_for(task["source"], task["target"])
+                prompt = (f"Translate the following text into {LANGUAGES[target]}. Note that you should only "
+                          f"output the translated result without any additional explanation:\n{task['text']}")
+                if engine.count_messages([{"role": "user", "content": prompt}]) > 512:
                     raise ValueError("Phrase exceeds the translation input limit; reduce the phrase length")
                 if (task["sid"], task["epoch"]) != (state["sid"], state["epoch"]):
                     continue
-                result = engine.translate(task["text"], task["source"], task["target"], on_chunk=on_chunk)
+                with engine.generate_stream(prompt) as stream:
+                    for update in stream:
+                        if update.delta:
+                            on_chunk(update.delta)
+                        with condition:
+                            obsolete = state["closing"] or (task["sid"], task["epoch"]) != (state["sid"], state["epoch"])
+                        if obsolete:
+                            break
+                result = stream.result
+                if result.finish_reason not in ("stop", "cancelled"):
+                    raise RuntimeError(f"Incomplete translation: {result.finish_reason}")
                 end = time.monotonic()
-                send("cancelled" if result["cancelled"] else "done", task, text=result["text"],
+                send("cancelled" if result.finish_reason == "cancelled" else "done", task, text=result.text,
                      first_ms=1000*(first[0]-task["submitted"]) if first else None,
-                     complete_ms=1000*(end-task["submitted"]), stats=result["stats"])
+                     complete_ms=1000*(end-task["submitted"]), stats=engine.stats)
             except Exception as exc:
                 send("error", task, error=str(exc))
             finally:
