@@ -1,8 +1,8 @@
 # Independent resource reuse
 
-Install the component SDKs and model packages once, using their own GitHub/ModelFarm instructions. This composite has no model repository, bundled SDK or model download step. Pass the existing package roots through --models and --translation-models; SDK paths use AUDIO8_SDK_ROOT and HY_MT2_SDK_ROOT. Refer to the main README for component release versions.
+Initialize the fixed component submodules and obtain their model packages using the corresponding component GitHub/ModelFarm instructions. This composite has no model repository, bundled SDK or model download step. Pass the existing package roots through --models and --translation-models; SDKs are discovered under components/asr and components/translation; no manual SDK-root variables are needed. Refer to the main README for component release versions.
 
-model-lock.json retains the exact original QCS8550/160 ms model-file identities used for this integration. Its current backing repositories preserve those same file identities; no duplicate model download is needed for existing verified installations. Runtime data are unchanged; preserve manifests, hashes and all package licenses. Other chip packages belong to their component projects and do not constitute composite inference qualification.
+model-lock.json and compatibility/ retain the original composition resource identities as historical provisioning evidence. They do not qualify the updated component pairing or override the fixed components' current model guides. Reuse matching existing weights without downloading duplicates, but verify the package manifest/configuration required by the pinned SDK. Preserve hashes and all package licenses. Other chip packages belong to their component projects and do not constitute composite inference qualification.
 
 ## Preparing an existing HY raw package
 

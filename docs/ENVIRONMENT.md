@@ -1,6 +1,6 @@
 # Environment and fixed components
 
-Use CPython3.10,3.11 or3.12 with a separate clean project venv for the selected interpreter. The component SDKs support these versions; this updated composite still requires its own integration/board qualification. Earlier application qualification applies only to its old component pairing.
+Use CPython3.10,3.11 or3.12 with a separate clean project venv for the selected interpreter. The updated composite was verified on QCS8550/Ubuntu22.04 with CPython3.10.12,3.11.18 and3.12.16 in separate clean project venvs. File examples, real streaming/Web requests and idle/active TERM/INT shutdown passed on each version. Earlier application qualification remains scoped to its old component pairing.
 
 The target is supported AidLux Linux AArch64 with the components' AidLite/AidGen/QNN prerequisites. Existing QCS8550 qualification used Ubuntu22.04 and QNN2.48. Do not replace shared board runtimes. ffmpeg/ffprobe and libsndfile are system prerequisites; venv does not isolate NPU, drivers or native runtime libraries.
 

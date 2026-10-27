@@ -3,8 +3,8 @@
 Application/business code and new Python examples are under the root Apache-2.0
 license. Existing component Python interfaces retain their supplied licenses.
 The ASR and translation SDKs are referenced as fixed submodules and retain their original
-licenses and release status. This application does not bundle their libraries,
-headers or bindings, and does not relicense those components or vendor runtimes.
+licenses and release status. This application records Git links rather than SDK copies. Recursive clone retrieves
+the component trees under their own terms; it does not relicense them or vendor runtimes.
 Historical SDK copies remain only in Git history. Existing attribution texts for
 application code derived from the ASR demo are preserved in NOTICE and LICENSES/.
 

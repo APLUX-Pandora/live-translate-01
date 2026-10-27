@@ -5,12 +5,13 @@ APLUX-authored application code and interfaces retain their designated Apache-2.
 terms. The reused native transcription and translation SDKs retain their scoped
 Pandora terms and applicable third-party rights.
 
-The transcription and translation SDKs are installed independently from:
+The transcription and translation SDKs are referenced as fixed Git submodules from:
   https://github.com/APLUX-Pandora/audio8-asr-infinite-demo
   https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo
 Preserve the license and notice files accompanying each SDK when redistributing
-those components. This application tree does not bundle their native libraries,
-headers, bindings or model packages.
+those components. The application stores component Git links rather than copied native libraries,
+headers or bindings. Recursive clone retrieves the original component trees; model
+packages are obtained separately.
 
 The separately downloaded transcription package includes Silero VAD under its
 MIT terms; LICENSES/Silero-VAD-MIT.txt is preserved here as well. Other model
