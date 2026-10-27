@@ -818,8 +818,8 @@ def main():
     except ValueError as error:
         ap.error(str(error))
     TRANSLATION_SDK = str(translation_root/'sdk/python')
-    from audio8_asr import ASRModel, ASRError, extra_file
-    LT01Error = ASRError
+    from audio8_asr import ASRModel, A8Error, extra_file
+    LT01Error = A8Error
     from hy_mt2 import TranslationError
     from model_paths import resolve_packages
     try:
