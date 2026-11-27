@@ -5,7 +5,11 @@ into the same subtitle view. It runs
 [Audio8-ASR-Infinite-160ms](https://huggingface.co/APLUX-Pandora/Audio8-ASR-Infinite-160ms)
 and [Hy-MT2-1.8B](https://huggingface.co/APLUX-Pandora/Hy-MT2-1.8B) on the device.
 
-**Demo recording:** [English speech to Chinese subtitles](https://github.com/user-attachments/assets/e6dbe78c-361a-4c53-a936-f45483d19137) · [Media credits](docs/MEDIA_ATTRIBUTION.md).
+**Demo recording**
+
+https://github.com/user-attachments/assets/83f3673e-8860-4455-871f-d772f0678bb6
+
+English speech to Chinese subtitles on QCS8550 (31 seconds). Live transcription and translation of the built-in FOSDEM lecture · [Media credits](docs/MEDIA_ATTRIBUTION.md).
 
 ## 1. Install
 
