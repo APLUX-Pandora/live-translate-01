@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Translate 01</title>
+<link rel="icon" type="image/svg+xml" href="/pandora-mark.svg">
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36; --text: #e8eaef; --muted: #8b93a5;
+    --accent: #4f8cff; --fresh: #7fb0ff; --warn: #f0b429; --ok: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+         display: flex; flex-direction: column; overflow: hidden; }
+  header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex: none; }
+  header .brand { display: flex; align-items: center; gap: 14px; margin-left: auto; flex: none; }
+  header .brand img { display: block; flex: none; }
+  header .brand .logo { height: 26px; width: auto; }
+  header .brand .divider { width: 1px; height: 22px; background: var(--line); }
+  header .brand .mark { height: 26px; width: 26px; }
+  header .brand .name { font-size: 17px; font-weight: 700; color: var(--text); margin-left: -6px; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  header .sub { color: var(--muted); }
+  header .foot { margin-left: auto; }
+  .chip { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .chip.running { color: var(--ok); border-color: var(--ok); }
+  .chip.done { color: var(--accent); border-color: var(--accent); }
+  .foot { color: var(--muted); font-size: 12px; }
+  #mediaCredits a { color: var(--accent); }
+  main { flex: 1; min-height: 0; display: grid; gap: 12px; padding: 12px 16px 16px;
+         grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+         grid-template-areas: "stage text" "metrics metrics"; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; }
+  .stage { grid-area: stage; display: flex; flex-direction: column; gap: 10px; }
+  .vidwrap { flex: 1; min-height: 0; background: #000; border-radius: 8px; overflow: hidden; display: flex; }
+  .vidwrap[hidden] { display: none; }
+  video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .audio-player { width: 100%; background: var(--bg); }
+  .audio-player[hidden] { display: none; }
+  .audio-controls { display: flex; align-items: center; gap: 10px; padding: 10px; }
+  .audio-controls input { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .audio-controls output { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: none; }
+  .controls label { color: var(--muted); font-size: 12px; }
+  select, button, input[type=number] { background: #0f1115; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font: inherit; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; }
+  #videoSel { max-width: 320px; }
+  #upMsg { color: var(--muted); font-size: 12px; }
+  #upMsg.err { color: var(--warn); }
+  #longHint { color: var(--warn); font-size: 12px; display: none; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; cursor: pointer; }
+  details.settings { position: relative; font-size: 12px; color: var(--muted); }
+  details.settings summary { list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings[open] summary { border-color: var(--accent); color: var(--text); }
+  details.settings .grid { position: absolute; z-index: 5; bottom: calc(100% + 6px); left: 0; width: min(560px, 80vw);
+         display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 14px; padding: 12px;
+         background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }
+  details.settings label { display: flex; flex-direction: column; gap: 3px; }
+  details.settings input[type=number], details.settings select { width: 100%; padding: 4px 8px; }
+  details.settings .hint { grid-column: 1 / -1; }
+  .right { grid-area: text; display: flex; flex-direction: column; }
+  .right .bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; flex: none; }
+  .right h2 { margin: 0 auto 0 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .right .bar button { padding: 3px 10px; font-size: 12px; }
+  #transcript { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; font-size: 19px; line-height: 1.65; white-space: pre-wrap; }
+  #transcript::-webkit-scrollbar { width: 5px; }
+  #transcript::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
+  .transcript-paragraph .stamp { color: var(--accent); font-size: 13px; cursor: pointer; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  #transcript .stamp:hover { text-decoration: underline; }
+  #transcript .sep { display: block; color: var(--muted); font-size: 13px; text-align: center; margin: 4px 0; }
+  #transcript .fresh { color: var(--fresh); animation: settle 1.4s ease-out forwards; }
+  @keyframes settle { to { color: var(--text); } }
+  #transcript .cursor { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -0.15em; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #notice { display: none; margin-top: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--warn); color: var(--warn); font-size: 12px; flex: none; }
+  .metrics { grid-area: metrics; display: grid; gap: 10px; height: 150px;
+             grid-template-columns: 250px 200px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr); }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; }
+  .stat, .box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+  .stat .k { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .stat .v { font-size: 17px; font-variant-numeric: tabular-nums; }
+  .box { display: flex; flex-direction: column; }
+  .box .hd { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .box .hd b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+  .box canvas { width: 100%; height: 104px; display: block; margin-top: 4px; }
+  .meter { position: relative; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: 8px 0 6px; }
+  .meter .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--muted); transition: width .08s linear; }
+  .meter .fill.speech { background: var(--ok); }
+  .meter .fill.on { background: var(--accent); }
+  .meter .mark { position: absolute; top: 0; bottom: 0; width: 2px; left: 50%; background: var(--warn); }
+  .silero b { font-size: 17px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+  .silero .g { color: var(--muted); font-size: 12px; margin-top: auto; }
+  .eotbox canvas { height: 64px; margin-top: 0; }
+  .legend { display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 4px; }
+  #help { position: fixed; inset: 0; z-index: 20; background: rgba(8, 10, 14, .72); display: none; align-items: center; justify-content: center; padding: 24px; }
+  #help.on { display: flex; }
+  #help .doc { position: relative; width: min(860px, 100%); max-height: 100%; overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
+               border-radius: 12px; padding: 22px 28px 26px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); line-height: 1.6; }
+  #help h2 { margin: 0 0 4px; font-size: 18px; }
+  #help h3 { margin: 22px 0 6px; font-size: 14px; color: var(--accent); }
+  #help p, #help li { color: var(--text); font-size: 13px; }
+  #help .muted { color: var(--muted); font-size: 12px; }
+  #help ol, #help ul { padding-left: 20px; margin: 6px 0; }
+  #help table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0; }
+  #help th, #help td { text-align: left; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  #help th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  #help td:first-child { white-space: nowrap; font-weight: 500; }
+  #help kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: inherit; font-size: 12px; }
+  #help .close { position: sticky; top: 0; float: right; margin: -8px -12px 0 0; padding: 2px 10px; font-size: 16px; }
+  #helpBtn { padding: 2px 12px; font-size: 12px; border-radius: 999px; }
+  #overlay { position: fixed; inset: 0; background: rgba(8, 10, 14, .72); display: none; align-items: center; justify-content: center; z-index: 10; }
+  #overlay.on { display: flex; }
+  #overlay .box2 { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 26px 34px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+  #overlay .spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #overlay .sub { color: var(--muted); font-size: 12px; }
+  @media (max-width: 1100px) {
+    body { overflow: auto; height: auto; }
+    main { grid-template-columns: 1fr; grid-template-rows: auto; grid-template-areas: "stage" "text" "metrics"; }
+    .vidwrap { flex: none; aspect-ratio: 16 / 9; }
+    .right { height: 50vh; }
+    .metrics { height: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  #transcript { flex: 1; min-height: 0; overflow-anchor: none; white-space: normal; }
+  .translation-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; flex: none; }
+  .translation-bar h2 { margin: 0 auto 0 0; font-size: 12px; }
+  #translationState { color: var(--muted); font-size: 11px; }
+  #copyTranslation { font-size: 11px; padding: 3px 8px; }
+  .result-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .translation-bar[hidden], .bar button[hidden] { display: none; }
+  .paragraph-pair { margin: 0 0 20px; }
+  .pair-heading { margin-bottom: 2px; }
+  .pair-heading .stamp { margin: 0; }
+  .sentence-pair { margin-bottom: 12px; }
+  .paragraph-text, .sentence-pair .target { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 18px; line-height: 1.65; }
+  .sentence-pair .target { margin-top: 4px; color: #a7c7f5; }
+  .sentence-pair[data-translated="false"] .target { display: none; }
+  .sentence-pair[data-status="length"] .target::after { content: " · Output limit"; color: var(--warn); }
+  .sentence-pair[data-status="cancelled"] .target::after { content: " · Cancelled"; color: var(--muted); }
+  .sentence-pair[data-status="error"] .target::after { content: " · Translation failed"; color: var(--warn); }
+  .sentence-pair[data-status="chunk"] .target::after { content: " ▍"; color: var(--fresh); }
+
+</style>
+</head>
+<body>
+<header>
+  <h1>Live Translate 01</h1><span class="sub">Live transcription and translation</span>
+  <span class="foot" id="foot"></span>
+  <button id="helpBtn" title="User manual">Help</button>
+  <span id="state" class="chip">Connecting</span>
+  <div class="brand" aria-label="APLUX | Pandora">
+    <img class="logo" src="/logo.png" alt="APLUX"><span class="divider" aria-hidden="true"></span>
+    <img class="mark" src="/pandora-mark.svg" alt=""><span class="name">Pandora</span>
+  </div>
+</header>
+<main>
+  <section class="panel stage">
+    <div id="videoWrap" class="vidwrap">
+      <video id="video" controls playsinline preload="auto"></video>
+    </div>
+    <div id="mediaCredits" class="foot" hidden>
+      Lorna Mitchell · FOSDEM 2025 ·
+      <a href="https://archive.fosdem.org/2025/schedule/event/fosdem-2025-5235-beyond-the-readme-crafting-a-better-developer-experience-for-open-source-projects/" target="_blank" rel="noopener">Talk and recording</a> ·
+      <a href="https://creativecommons.org/licenses/by/2.0/be/deed.en" target="_blank" rel="noopener">CC BY 2.0 BE</a>
+    </div>
+    <div id="audioPlayer" class="audio-player" role="group" aria-label="Audio playback" hidden>
+      <div class="audio-controls">
+        <button id="audioPlay" type="button" disabled>Play</button>
+        <input id="audioSeek" type="range" aria-label="Playback position" min="0" max="0" step="0.01" value="0" disabled>
+        <output id="audioTime">0:00 / 0:00</output>
+      </div>
+    </div>
+    <div class="controls">
+      <select id="videoSel" aria-label="Media file"></select>
+      <button id="startBtn" class="primary">Start</button>
+      <button id="stopBtn">Stop</button>
+      <button id="cancelBtn">Cancel</button>
+      <button id="retryBtn" hidden>Retry connection</button>
+      <button id="reloadBtn" hidden title="Ends the failed recording. Keep partial results, then start again after loading.">Reload models</button>
+      <select id="upLang" title="Language spoken in the file you upload">
+        <option value="zh">Upload as Chinese</option>
+        <option value="en">Upload as English</option>
+      </select>
+      <button id="upBtn">Upload file</button>
+      <button id="delBtn">Delete</button>
+      <input id="upFile" type="file" accept=".mp4,.m4v,.mov,.webm,.mkv,.mp3,.wav,.m4a" hidden>
+      <span id="upMsg"></span>
+    </div>
+    <div class="controls language-controls">
+      <label for="sourceSel">Source language</label>
+      <select id="sourceSel" aria-label="Source language" title="Read from the video language record; correct it here if needed">
+        <option value="zh">Chinese</option><option value="en">English</option>
+      </select>
+      <label for="targetSel">Target language</label>
+      <select id="targetSel" aria-label="Target language"></select>
+    </div>
+    <div class="controls"><span id="cfg" class="chip">160 ms</span></div>
+  </section>
+  <section class="panel right" id="outputPanel">
+    <div class="bar"><h2 id="outputTitle">Bilingual transcript</h2>
+      <button id="copyBtn">Copy original</button><button id="dlBtn">Export original</button><button id="clearBtn">Clear display</button></div>
+    <div class="translation-bar" id="translationBar"><h2 id="translationTarget">Translation</h2><span id="translationState" role="status">Waiting for transcript</span><button id="copyTranslation">Copy translation</button></div>
+    <div class="result-panel" id="resultPanel" role="region" aria-labelledby="outputTitle">
+    <div id="transcript" tabindex="0" role="log" aria-label="Original and translated sentences" aria-live="polite" aria-relevant="additions text"></div>
+    </div>
+    <div id="notice"></div>
+  </section>
+  <section class="metrics">
+    <div class="tiles">
+      <div class="stat"><div class="k">Position</div><div class="v" id="sAudio">-</div></div>
+      <div class="stat"><div class="k">First word</div><div class="v" id="sFirst">-</div></div>
+      <div class="stat"><div class="k">Audio processing</div><div class="v" id="sStep">-</div></div>
+      <div class="stat"><div class="k" id="wordsK">Words</div><div class="v" id="sWords">-</div></div>
+    </div>
+    <div class="box"><div class="hd"><span>Board DRAM</span><b id="dramVal">-</b></div><canvas id="dramChart"></canvas></div>
+    <div class="box"><div class="hd"><span title="processing time / audio duration; below 1 = faster than real time">RTF</span><b id="rtfVal">-</b></div><canvas id="rtfChart"></canvas></div>
+  </section>
+</main>
+<div id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+ <div class="doc">
+  <button class="close" id="helpClose" aria-label="Close">×</button>
+  <h2 id="helpTitle">Live Translate 01</h2>
+  <ol>
+    <li>Press <b>Start</b> to play the built-in lecture with English and Chinese subtitles.</li>
+    <li>To use your own file, select its language and upload a video with sound or an MP3, WAV or M4A (AAC) audio file. Choose a target language and press <b>Start</b>. Use the media list to switch files.</li>
+    <li>Press <b>Stop</b> to finish captured audio and pending translations, or <b>Cancel</b> to discard unfinished work and start a new session.</li>
+    <li>If the connection drops, keep the page open. <b>Retry connection</b> resumes the same session and resends unacknowledged audio.</li>
+  </ol>
+  <p>The device runs the models, and this page captures the selected file’s audio. Seeking during transcription starts a new recording from the new position. If less than one second remains, playback and transcription restart from the beginning. Switching files cancels the current recording and clears its subtitles.</p>
+ </div>
+</div>
+<div id="overlay"><div class="box2"><div class="spin"></div><div id="ovMsg">Loading models…</div><div class="sub">The board is reloading the NPU models, this takes a few seconds.</div></div></div>
+<script src="/pcm-worklet.js"></script>
+<script src="/translation.js"></script>
+<script src="/transport.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const video = $("video"), tr = $("transcript");
+let sid = null, running = false, restarting = null;
+let videos = [], lang = "en", clock = null;
+let seekTimer = null, uploading = false, changingMedia = false, ignoredMediaSid = -1;
+let audioDuration = null, audioScrubbing = false;
+function fmtT(s) { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; }
+const dramPts = [], rtfPts = [];
+let dramTotal = null;
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+// series: [{pts: [[x, y]], color, width, alpha}]; window [x0, x0 + span] follows the newest point (o.xmin pins the left
+// edge until the data fills the window); y axis [o.ymin, o.ymax] with the two bounds labelled on the right
+function drawChart(cv, series, o) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const last = series[0].pts, x1 = last.length ? last[last.length - 1][0] : 0;
+  const x0 = o.xmin != null ? Math.max(o.xmin, x1 - o.span) : x1 - o.span;
+  const top = 6, bot = 6, ymin = o.ymin ?? 0, yr = (o.ymax - ymin) || 1;
+  const X = x => (x - x0) / o.span * (w - 44);
+  const Y = y => top + (1 - (Math.max(ymin, Math.min(o.ymax, y)) - ymin) / yr) * (h - top - bot);
+  g.strokeStyle = css("--line"); g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const y = Math.round(top + i * (h - top - bot) / 4) + .5; g.beginPath(); g.moveTo(0, y); g.lineTo(w - 44, y); g.stroke(); }
+  if (o.ref != null) {
+    g.setLineDash([4, 4]); g.strokeStyle = css("--warn"); const y = Math.round(Y(o.ref)) + .5;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w - 44, y); g.stroke(); g.setLineDash([]);
+    g.fillStyle = css("--warn"); g.font = "11px system-ui"; g.fillText(o.refLabel, 4, y - 4);
+  }
+  for (const s of series) {
+    const vis = s.pts.filter(p => p[0] >= x0);
+    if (vis.length < 2) continue;
+    g.globalAlpha = s.alpha ?? 1; g.strokeStyle = s.color; g.lineWidth = s.width ?? 1.8; g.lineJoin = "round"; g.beginPath();
+    vis.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.stroke(); g.globalAlpha = 1;
+  }
+  g.fillStyle = css("--muted"); g.font = "11px system-ui"; g.textAlign = "right";
+  g.fillText(o.fmt(o.ymax), w - 2, top + 4); g.fillText(o.fmt(ymin), w - 2, h - bot + 2); g.textAlign = "left";
+}
+function redrawDram() {
+  if (!dramTotal) return;
+  // y axis zoomed to the recent range (at least 0.5 GB tall) so small changes stay visible
+  const vis = dramPts.filter(p => p[0] >= (dramPts.length ? dramPts[dramPts.length - 1][0] : 0) - 60).map(p => p[1]);
+  const lo = Math.min(...vis), hi = Math.max(...vis), mid = (lo + hi) / 2, half = Math.max(256, (hi - lo) / 2 * 1.3);
+  drawChart($("dramChart"), [{ pts: dramPts, color: css("--accent"), width: 2 }],
+            { span: 60, ymin: Math.max(0, mid - half), ymax: Math.min(dramTotal, mid + half), fmt: v => (v / 1024).toFixed(2) + " GB" });
+}
+function redrawRtf() {
+  // thin faint line = every token; bold line = moving average over the last 8 tokens (~1.3 s)
+  const sm = rtfPts.map((p, i) => { const a = rtfPts.slice(Math.max(0, i - 7), i + 1); return [p[0], a.reduce((s, q) => s + q[1], 0) / a.length]; });
+  drawChart($("rtfChart"), [{ pts: sm, color: css("--ok"), width: 2.2 }, { pts: rtfPts, color: css("--ok"), width: 1, alpha: .35 }],
+            { span: 60, xmin: 0, ymin: 0, ymax: 1.2, ref: 1, refLabel: "real time 1.0", fmt: v => v.toFixed(1) });
+}
+function trimPts(a) { while (a.length > 2 && a[0][0] < a[a.length - 1][0] - 90) a.shift(); }   // charts show 60 s
+function copyText() {
+  const t = originalText().trim(); if (!t) return;
+  const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+  ta.remove(); $("copyBtn").textContent = ok ? "Copied" : "Copy failed"; setTimeout(() => $("copyBtn").textContent = "Copy", 1200);
+}
+function downloadText() {
+  const t = originalText().trim(); if (!t) return;
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t + "\n"], { type: "text/plain" }));
+  a.download = ($("videoSel").value || "transcript").split("/").pop().replace(/\.[^.]+$/, "") + "_transcript.txt"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function setState(s, label) {
+  $("clearBtn").disabled = s === "running" || translationPending > 0;
+  const el = $("state"); el.className = "chip " + s; el.textContent = label;
+  updateLanguageAvailability();
+}
+function resetTranscript(keepText, preservePairs = false) {
+  if (!keepText) {
+    sourceUnitCount = 0; sourceParagraphs.clear();
+    if (!preservePairs) { translationParagraphs.clear(); tr.replaceChildren(); }
+  }
+  $("notice").style.display = "none";
+  ["sAudio", "sFirst", "sStep", "sWords"].forEach(k => $(k).textContent = "-");
+  rtfPts.length = 0; $("rtfVal").textContent = "-"; redrawRtf();
+}
+const sourceParagraphs = new Map();
+let sourceSessionSid = null;
+let sourceUnitCount = 0;
+function originalText() {
+  return [...sourceParagraphs.values()].map(p => `[${fmtT(p.start_s)}] ${p.text.trim()}`).join("\n\n");
+}
+function renderSource(part) {
+  let row = sourceParagraphs.get(part.id);
+  if (row && part.revision <= row.revision) return;
+  const follow = tr.scrollHeight - tr.scrollTop - tr.clientHeight < 100;
+  if (part.text === undefined) {
+    if (part.revision !== (row ? row.revision + 1 : 1)) return;
+    part = {...part, text:(row ? row.text : "") + part.piece};
+  }
+  const pair = translationParagraph(part);
+  if (!row) {
+    row = {element: pair.element}; sourceParagraphs.set(part.id, row);
+  }
+  const units = countUnits(part.text);
+  sourceUnitCount += units - (row.count || 0); row.count = units;
+  row.revision = part.revision; row.text = part.text; row.start_s = part.start_s;
+  renderTranslation();
+  if (follow) tr.scrollTop = tr.scrollHeight;
+}
+const {requestJSON, AudioDelivery} = PandoraTransport;
+let modelNeedsReload = false, statusUncertain = false, resumeAfterRetry = false, incompleteRecording = false, capturePaused = false, restartFromBeginning = false, draining = false;
+async function post(url, body, signal) {
+  return requestJSON(url, {method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body || {}), signal});
+}
+function partialResult(message) {
+  incompleteRecording = true;
+  $("notice").style.display="block";
+  $("notice").textContent="Incomplete recording: "+message;
+  setState("", "Recording incomplete");
+}
+function deliveryChanged(session) {
+  if (session.failed) {
+    resumeAfterRetry = resumeAfterRetry || (running && !session.ended);
+    running=false; video.pause();
+    if (pcmCapture) pcmCapture(false);
+    partialResult("Audio delivery was interrupted. Pending audio is retained in this page; keep it open and retry the connection.");
+    upMsg(session.failed.message || "Audio upload failed", true);
+  }
+  if (!session.failed && capturePaused && session.queue.length<5 && !session.ended && running) {
+    capturePaused=false;
+    upMsg("");
+    video.play().catch(error => upMsg("Buffered audio sent. Press play to continue: "+error.message,true));
+  }
+  updateRecoveryControls();
+}
+const audioDelivery = new AudioDelivery({changed:deliveryChanged});
+function updateRecoveryControls() {
+  $("retryBtn").hidden = modelNeedsReload || (!audioDelivery.failed && !statusUncertain);
+  $("reloadBtn").hidden = !modelNeedsReload;
+  $("reloadBtn").disabled = switching || statusUncertain;
+  const selected = curVideo();
+  const mediaBusy = uploading || changingMedia || Boolean(restarting);
+  $("videoSel").disabled = !selected || mediaBusy;
+  $("upBtn").disabled = mediaBusy;
+  $("delBtn").disabled = !selected || selected.builtin || mediaBusy;
+  $("stopBtn").disabled = !selected || mediaBusy;
+  $("cancelBtn").disabled = sid === null || switching || mediaBusy;
+  $("startBtn").disabled = !selected || mediaBusy || running || draining || translationPending>0 || switching || modelNeedsReload || statusUncertain || audioDelivery.busy;
+}
+function modelFailed(message) {
+  modelNeedsReload=true; restartFromBeginning=true; draining=false; running=false; video.pause();
+  finishSwitch(); partialResult(message || "Inference failed. Reload models, then start the recording again.");
+  upMsg("Reload models before starting again. Displayed partial results are retained.", true);
+  updateRecoveryControls();
+}
+async function retryConnection() {
+  $("retryBtn").disabled=true;
+  try {
+    const info=await requestJSON("/api/videos", {cache:"no-store"});
+    statusUncertain=false; handleEvent(info);
+    if (modelNeedsReload) return;
+    if (audioDelivery.failed) {
+      if (info.sid !== audioDelivery.session.sid) throw new Error("Recording changed on the board. Keep the partial result and reload this page before starting again.");
+      await audioDelivery.retry();
+      if (audioDelivery.failed) throw audioDelivery.failed;
+      incompleteRecording=false; restartFromBeginning=false; capturePaused=false; $("notice").style.display="none"; upMsg("");
+    }
+    if (resumeAfterRetry && audioDelivery.session && !audioDelivery.session.ended) {
+      if (info.sid !== audioDelivery.session.sid) throw new Error("Recording changed on the board; start a new recording after checking the result.");
+      resumeAfterRetry=false; running=true; await video.play();
+    }
+    if (!audioDelivery.failed) handleEvent(await requestJSON("/api/videos", {cache:"no-store"}));
+  } catch(error) { upMsg("Could not recover connection: "+error.message,true); }
+  finally { $("retryBtn").disabled=false; updateRecoveryControls(); }
+}
+async function reloadModels() {
+  if (switching || statusUncertain) return;
+  running=false; video.pause();
+  const epoch=beginSwitch(clock,lang);
+  try {
+    await post("/api/reload");
+    watchSwitch(epoch);
+  } catch(error) {
+    statusUncertain=!error.status;
+    finishSwitch(error.status ? "Reload was rejected: "+error.message :
+      "Could not confirm reload: "+error.message+". Retry the connection to check the board state.");
+    updateRecoveryControls();
+  }
+}
+// Audio capture: the page decodes the selected media's sound (Web Audio), it is resampled to 16 kHz PCM16 and every 100 ms
+// chunk is POSTed to the board, in order. The resampler is Pcm16Resampler of static/pcm-worklet.js. AudioWorklet only
+// exists in secure contexts (https / localhost); on the board's plain http address the same resampler runs in a
+// ScriptProcessorNode instead.
+let audioCtx = null, pcmNode = null, audioEpoch = 0, pcmReset = null, pcmCapture = null, pcmFlush = null;
+function onPcm(epoch, buf) {
+  if (epoch !== audioEpoch || (!running && !draining && !capturePaused && !statusUncertain && !incompleteRecording) || sid === null || video.seeking) return;
+  audioDelivery.enqueue(buf);
+  if (audioDelivery.session && audioDelivery.session.queue.length>=20 && !capturePaused) {
+    capturePaused=true; video.pause();
+    upMsg("Sending buffered audio; playback is paused until the connection catches up.");
+  }
+}
+async function ensureAudio() {
+  if (audioCtx) { if (audioCtx.state !== "running") await audioCtx.resume(); return; }
+  audioCtx = new AudioContext();
+  await audioCtx.resume();
+  const src = audioCtx.createMediaElementSource(video);
+  src.connect(audioCtx.destination);              // playback stays audible
+  if (audioCtx.audioWorklet) {
+    await audioCtx.audioWorklet.addModule("/pcm-worklet.js");
+    pcmNode = new AudioWorkletNode(audioCtx, "pcm16-worklet",
+      { processorOptions: { targetSampleRate: 16000, sourceSampleRate: audioCtx.sampleRate, chunkSamples: 1600 } });
+    let flushDone = null;
+    const flushMessage = "Waiting for the audio capture to send its final chunk…";
+    pcmNode.port.onmessage = ({data}) => {
+      if (data.buffer) onPcm(data.epoch, data.buffer);
+      if (data.flushed && data.epoch === audioEpoch && flushDone) flushDone(true);
+    };
+    pcmReset = epoch => {
+      if (flushDone) flushDone(false);
+      pcmNode.port.postMessage({epoch});
+    };
+    pcmCapture = enabled => pcmNode.port.postMessage({enabled});
+    pcmFlush = () => new Promise(resolve => {
+      const timer = setTimeout(() => upMsg(flushMessage), 1000);
+      flushDone = acknowledged => {
+        clearTimeout(timer);
+        flushDone = null;
+        if ($("upMsg").textContent === flushMessage) upMsg("");
+        resolve(acknowledged);
+      };
+      pcmNode.port.postMessage({flush:true});
+    });
+  } else {
+    let epoch = audioEpoch, enabled = false;
+    const rs = new Pcm16Resampler(audioCtx.sampleRate, 16000, 1600, buf => onPcm(epoch, buf));
+    pcmNode = audioCtx.createScriptProcessor(4096, 2, 1);
+    pcmNode.onaudioprocess = e => {
+      if (!enabled) return;
+      const chs = []; for (let c = 0; c < e.inputBuffer.numberOfChannels; c += 1) chs.push(e.inputBuffer.getChannelData(c));
+      rs.push(chs);
+    };
+    pcmReset = ep => { epoch = ep; rs.reset(); };
+    pcmCapture = active => { enabled = active; };
+    pcmFlush = () => { rs.flush(); return true; };
+  }
+  src.connect(pcmNode); pcmNode.connect(audioCtx.destination);   // the capture node outputs silence
+}
+function newAudioEpoch() {                        // drop audio captured before a start / seek
+  audioEpoch += 1;
+  if (pcmReset) pcmReset(audioEpoch);
+}
+function countUnits(t) {          // words for English, characters (CJK, letters, digits) for Chinese
+  t = t.trim(); if (!t) return 0;
+  return lang === "zh" ? (t.match(/[\p{L}\p{N}]/gu) || []).length : t.split(/\s+/).length;
+}
+function fmtDur(s) { if (s == null) return ""; s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+function curVideo() { return videos.find(v => v.id === $("videoSel").value); }
+function updateVideoUi() {
+  const v = curVideo();
+  if (v) { $("sourceSel").value = v.lang; $("upLang").value = v.lang; refreshTargetChoices(v.lang); }
+  else { $("sourceSel").value = lang; refreshTargetChoices(lang); }
+  if (!v && !$("upMsg").textContent) upMsg("Upload a file to begin.");
+  if (v && $("upMsg").textContent === "Upload a file to begin.") upMsg("");
+  updateLanguageAvailability();
+}
+async function loadVideos(select) {
+  applyVideos(await requestJSON("/api/videos", {cache:"no-store"}), select);
+}
+function applyVideos(d, select) {
+  if (d.reload_required) modelFailed(d.model_error);
+  videos = d.videos;
+  const picker = $("videoSel");
+  const options = videos.map(v => {
+    const option = document.createElement("option");
+    option.value = v.id;
+    option.textContent = v.name + (v.duration_s ? " (" + fmtDur(v.duration_s) + ")" : "") +
+      (v.kind === "audio" ? " · Audio" : "") + (v.lang === "en" ? " · EN" : " · ZH") +
+      (v.builtin ? " · built-in" : "");
+    return option;
+  });
+  if (!options.length) {
+    const option = document.createElement("option");
+    option.value = ""; option.textContent = "Upload a file";
+    options.push(option);
+  }
+  picker.replaceChildren(...options);
+  const defaultId = videos.find(v => v.default)?.id;
+  const activeId = d.state === "running" || d.state === "reset" || d.translation_active ? d.video : null;
+  const keep = [select, video.dataset.id, activeId, defaultId, d.video].find(id => videos.some(v => v.id === id)) ||
+    (videos.find(v => v.lang === d.lang) || videos[0] || {}).id || "";
+  const freshDemo = !video.dataset.id && keep && keep === defaultId && !activeId;
+  const discardedSid = freshDemo && d.video && d.video !== keep ? d.sid : -1;
+  picker.value = keep;
+  setVideo(curVideo(), discardedSid);
+  updateVideoUi();
+  if (freshDemo) refreshTargetChoices(curVideo().lang, "zh");
+  if (select || keep !== d.video) ensureLang(clock || d.clock_ms, d.lang);
+}
+function setVideo(media, discardedSid = -1) {
+  const id = media?.id || "";
+  if ((video.dataset.id || "") === id) return;
+  const hadSelection = Boolean(video.dataset.id);
+  clearTimeout(seekTimer);
+  video.pause();
+  if (hadSelection || discardedSid >= 0) {
+    ignoredMediaSid = Math.max(ignoredMediaSid, discardedSid, sid ?? -1, sourceSessionSid ?? -1, translationSid ?? -1);
+    newAudioEpoch();
+    audioDelivery.discardFailedRecording();
+    sid = null;
+    draining = capturePaused = resumeAfterRetry = incompleteRecording = restartFromBeginning = false;
+    resetTranscript(false);
+    resetTranslation(translationSid, translationTargetCode);
+    if (!modelNeedsReload && !statusUncertain) setState("", "Ready");
+  }
+  video.dataset.id = id;
+  const audio = media?.kind === "audio";
+  audioDuration = audio && media.duration_s > 0 ? media.duration_s : null;
+  audioScrubbing = false;
+  video.hidden = audio;
+  $("videoWrap").hidden = audio;
+  $("audioPlayer").hidden = !audio;
+  $("mediaCredits").hidden = !media?.default;
+  if (id) video.src = "/media/" + id.split("/").map(encodeURIComponent).join("/");
+  else {
+    video.removeAttribute("src");
+    video.load();
+  }
+  updateAudioControls();
+  updateStartLabel();
+}
+function updateAudioControls() {
+  if ($("audioPlayer").hidden) return;
+  const ready = Number.isFinite(video.duration) && video.duration > 0;
+  const seek = $("audioSeek");
+  $("audioPlay").disabled = !ready;
+  $("audioPlay").textContent = video.paused ? "Play" : "Pause";
+  seek.disabled = !ready;
+  seek.max = ready ? (audioDuration ?? video.duration) : 0;
+  if (!audioScrubbing) seek.value = ready ? Math.min(video.currentTime, Number(seek.max)) : 0;
+  showAudioTime();
+}
+function showAudioTime() {
+  const seek = $("audioSeek");
+  const time = fmtT(Number(seek.value));
+  seek.setAttribute("aria-valuetext", time);
+  $("audioTime").textContent = time + " / " + fmtT(Number(seek.max));
+}
+function upMsg(t, err) { const m = $("upMsg"); m.textContent = t; m.className = err ? "err" : ""; }
+async function changeMedia(action) {
+  if (changingMedia || restarting) return;
+  changingMedia = true;
+  updateLanguageAvailability();
+  try {
+    if (sid !== null && (running || draining || audioDelivery.busy || translationPending || !audioDelivery.session?.endAck) &&
+        !await cancel()) return;
+    await action();
+  } catch (error) {
+    upMsg(error.message, true);
+    return;
+  } finally {
+    $("videoSel").value = video.dataset.id || "";
+    changingMedia = false;
+    updateVideoUi();
+  }
+  ensureLang();
+}
+async function upload(file) {
+  if (uploading || changingMedia || restarting) return;
+  const language = $("upLang").value;
+  uploading = true;
+  updateLanguageAvailability();
+  try {
+    const id = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", "/api/upload?name=" + encodeURIComponent(file.name) + "&lang=" + language);
+      xhr.upload.onprogress = e => { if (e.lengthComputable) upMsg("Uploading " + Math.round(100 * e.loaded / e.total) + "%"); };
+      xhr.upload.onload = () => upMsg("Checking the audio track…");
+      xhr.onload = () => {
+        let r = {}; try { r = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status === 200 && r.id) resolve(r.id);
+        else reject(new Error("Upload failed: " + (r.error || xhr.status)));
+      };
+      xhr.onerror = () => reject(new Error("Upload failed (network)"));
+      upMsg("Uploading 0%");
+      xhr.send(file);
+    });
+    const listing = await requestJSON("/api/videos", {cache:"no-store"});
+    if (!listing.videos.some(v => v.id === id)) throw new Error("Uploaded file is unavailable");
+    // A seek can replace the recording while the upload is being checked.
+    if (restarting) await restarting;
+    await changeMedia(() => {
+      applyVideos(listing, id);
+      const message = "Uploaded " + id.split("/").pop();
+      upMsg(message);
+      setTimeout(() => { if ($("upMsg").textContent === message) upMsg(""); }, 4000);
+    });
+  } catch (error) {
+    upMsg(error.message, true);
+  } finally {
+    uploading = false;
+    updateLanguageAvailability();
+  }
+}
+async function delVideo() {
+  const v = curVideo();
+  if (!v || v.builtin || !confirm("Delete " + v.name + " from the board?")) return;
+  await changeMedia(async () => {
+    await post("/api/delete", {video:v.id});
+    await loadVideos();
+  });
+}
+function showOverlay(on, msg) { $("overlay").classList.toggle("on", on); if (msg) $("ovMsg").textContent = msg; }
+let switching = false, switchTimer = null, switchEpoch = 0;
+const SWITCH_TIMEOUT_MS = 60000, SWITCH_POLL_MS = 500;
+function finishSwitch(error) {
+  clearTimeout(switchTimer); switchTimer = null;
+  switching = false; ++switchEpoch; showOverlay(false); updateLanguageAvailability();
+  updateRecoveryControls();
+  if (error) upMsg(error, true);
+}
+function beginSwitch(c, l) {
+  switching = true;
+  updateLanguageAvailability();
+  showOverlay(true, `Loading the ${c || ""} ms clock · ${l === "zh" ? "Chinese" : "English"}…`);
+  return ++switchEpoch;
+}
+async function pollSwitch(epoch, deadline) {
+  if (!switching || epoch !== switchEpoch) return;
+  if (Date.now() >= deadline) {
+    statusUncertain=true;
+    finishSwitch("Could not confirm model reload. Retry connection to check the board state.");
+    return;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.min(5000, deadline - Date.now()));
+  try {
+    const response = await fetch("/api/videos", { cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const info = await response.json();
+    if (!switching || epoch !== switchEpoch) return;
+    if (info.clock_ms && info.state !== "reload") {
+      handleEvent(info);                      // the current server state also recovers a missed SSE completion
+      return;
+    }
+  } catch (_) {                              // a brief disconnect is retried within the bounded deadline
+  } finally { clearTimeout(timer); }
+  if (switching && epoch === switchEpoch)
+    switchTimer = setTimeout(() => pollSwitch(epoch, deadline), SWITCH_POLL_MS);
+}
+function watchSwitch(epoch) { pollSwitch(epoch, Date.now() + SWITCH_TIMEOUT_MS); }
+async function configureTo(c, l) {
+  c = String(c);
+  if (switching || (c === clock && l === lang)) return;
+  const epoch = beginSwitch(c, l), controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SWITCH_TIMEOUT_MS);
+  try {
+    if ((running || audioDelivery.busy) && !await stop(controller.signal)) {
+      finishSwitch("Pending audio was not delivered. Retry the connection before changing models."); return;
+    }
+    const r = await post("/api/config", { clock_ms: c, lang: l }, controller.signal);
+    if (epoch !== switchEpoch) return;
+    if (r.error) throw new Error(r.error);
+    watchSwitch(epoch);
+  } catch (error) {
+    if (epoch === switchEpoch)
+      finishSwitch("Could not change model configuration: " + (error.message || String(error)));
+  } finally { clearTimeout(timer); }
+}
+function updateLanguageAvailability() {
+  const busy = running || draining || switching || uploading || changingMedia || Boolean(restarting) || modelNeedsReload || statusUncertain || audioDelivery.busy || translationPending > 0 || $("state").classList.contains("running");
+  $("sourceSel").disabled = busy || !curVideo(); $("targetSel").disabled = busy;
+  updateRecoveryControls();
+}
+function refreshTargetChoices(source, selected) {
+  const desired = selected || $("targetSel").value || translationTargetCode;
+  $("targetSel").replaceChildren();
+  for (const [code, label] of Object.entries(translationLanguages)) {
+    const option = document.createElement("option"); option.value = code; option.textContent = label;
+    option.disabled = code === source; $("targetSel").append(option);
+  }
+  $("targetSel").value = desired && desired !== source ? desired : source === "zh" ? "en" : "zh";
+}
+async function chooseSourceLanguage() {
+  const desired = $("sourceSel").value;
+  const selected = curVideo();
+  if (!selected) return;
+  try {
+    await post("/api/video-language", {video:selected.id, lang:desired});
+  } catch (error) {
+    upMsg(error.message, true);
+    updateVideoUi();
+    return;
+  }
+  selected.lang = desired;
+  await loadVideos($("videoSel").value);
+}
+async function chooseTargetLanguage() {
+  try {
+    await post("/api/translation-target", {target:$("targetSel").value});
+  } catch (error) {
+    upMsg(error.message, true);
+    refreshTargetChoices($("sourceSel").value, translationTargetCode);
+  }
+}
+function ensureLang(currentClock = clock, currentLang = lang) {
+  const v = curVideo();
+  if (v && currentClock && v.lang !== currentLang) configureTo(currentClock, v.lang);
+}
+function startPos() { if (restartFromBeginning) return 0; return (video.ended || !isFinite(video.duration) || video.duration - video.currentTime < 1) ? 0 : video.currentTime; }
+function updateStartLabel() { $("startBtn").textContent = `Start at ${fmtT(startPos())}`; }
+let cancellingSeek = null;
+function start(seek = null) {
+  if (changingMedia || restarting) return;
+  restarting = startRecording(seek).finally(() => {
+    restarting = null;
+    updateRecoveryControls();
+  });
+  updateRecoveryControls();
+  return restarting;
+}
+async function startRecording(seek) {
+  if (seek) {
+    cancellingSeek = seek;
+    try {
+      if (!await cancel()) return;
+    } finally {
+      cancellingSeek = null;
+    }
+  }
+  if (running || draining || translationPending>0 || modelNeedsReload || statusUncertain || audioDelivery.busy || switching) return;
+  try {
+    const off=seek?.offset ?? startPos(); video.pause();
+    if (video.currentTime!==off) video.currentTime=off;
+    const r=await post("/api/start", {video:$("videoSel").value, offset_s:off,
+      target:$("targetSel").value, translation_enabled:true, audio_sequence:true});
+    sid=r.sid; audioDelivery.begin(sid); resetTranscript(false); sourceSessionSid=sid;
+    incompleteRecording=false; restartFromBeginning=false; capturePaused=false; resumeAfterRetry=false; $("notice").style.display="none";
+    await ensureAudio(); newAudioEpoch(); running=true;
+    await video.play();
+  } catch(error) {
+    running=false; statusUncertain=!error.status;
+    if (error.payload && error.payload.reload_required) modelFailed(error.message);
+    else upMsg(error.status ? error.message : "Could not confirm recording start: "+error.message+". Retry connection before starting again.",true);
+  }
+}
+async function stop() {
+  if (!audioDelivery.session || sid===null) return true;
+  if (audioDelivery.session.endAck) return true;
+  if (draining) return false;
+  clearTimeout(seekTimer);
+  draining=true;
+  const delivery=audioDelivery.session;
+  running=false; resumeAfterRetry=false; video.pause();
+  if (pcmCapture) pcmCapture(false);
+  updateRecoveryControls();
+  if (pcmFlush && !await pcmFlush()) return false;
+  if (!draining || audioDelivery.session !== delivery) return false;
+  await audioDelivery.end();
+  updateRecoveryControls();
+  return delivery.endAck;
+}
+async function cancel() {
+  if (sid === null) return true;
+  clearTimeout(seekTimer);
+  running=false; resumeAfterRetry=false; video.pause();
+  if (pcmCapture) pcmCapture(false);
+  try {
+    await post("/api/cancel", {sid});
+  } catch (error) {
+    if (error.status !== 409) { upMsg("Could not confirm cancellation: " + error.message, true); return false; }
+  }
+  newAudioEpoch();
+  audioDelivery.discardFailedRecording();
+  sid=null; draining=false; capturePaused=false; incompleteRecording=false; statusUncertain=false; restartFromBeginning=false;
+  translationPending=0;
+  setState("", "Cancelled");
+  updateRecoveryControls();
+  return true;
+}
+video.addEventListener("play", () => {
+  if (modelNeedsReload || statusUncertain || audioDelivery.failed || capturePaused) video.pause();
+  else if (pcmCapture) pcmCapture(running);
+});
+video.addEventListener("pause", () => { if (pcmCapture) pcmCapture(false); });
+video.addEventListener("ended", () => { if (running) stop(); });
+function jump(recording, offset) {
+  if (sid !== recording || !running || modelNeedsReload || statusUncertain) return;
+  return start({offset});
+}
+video.addEventListener("seeked", () => {
+  updateStartLabel();
+  if (cancellingSeek) {
+    cancellingSeek.offset = startPos();
+    return;
+  }
+  if (!running || restarting) return;
+  const recording = sid, offset = startPos();
+  if (pcmCapture) pcmCapture(false);
+  clearTimeout(seekTimer);
+  seekTimer = setTimeout(() => jump(recording, offset), 300);
+});
+["timeupdate", "loadedmetadata", "pause"].forEach(e => video.addEventListener(e, updateStartLabel));
+["timeupdate", "durationchange", "loadedmetadata", "emptied", "play", "pause", "ended"].forEach(e =>
+  video.addEventListener(e, updateAudioControls));
+$("audioPlay").onclick = () => {
+  if (video.paused) video.play().catch(error => upMsg(error.message, true));
+  else video.pause();
+};
+$("audioSeek").oninput = () => {
+  audioScrubbing = true;
+  showAudioTime();
+};
+$("audioSeek").onchange = () => {
+  audioScrubbing = false;
+  video.currentTime = Number($("audioSeek").value);
+};
+$("audioSeek").onblur = () => {
+  if (!audioScrubbing) return;
+  audioScrubbing = false;
+  updateAudioControls();
+};
+tr.addEventListener("click", e => { const t = e.target.dataset && e.target.dataset.t; if (t != null) video.currentTime = parseFloat(t); });
+$("startBtn").onclick = () => start();
+$("copyBtn").onclick = copyText;
+$("dlBtn").onclick = downloadText;
+$("clearBtn").onclick = () => { if (running || translationPending) return; resetTranscript(false); resetTranslation(translationSid, translationTargetCode); };
+window.addEventListener("resize", () => { redrawDram(); redrawRtf(); });
+$("stopBtn").onclick = stop;
+$("cancelBtn").onclick = cancel;
+$("retryBtn").onclick = retryConnection;
+$("reloadBtn").onclick = reloadModels;
+$("videoSel").onchange = () => {
+  const selected = curVideo();
+  return changeMedia(() => setVideo(selected));
+};
+$("upBtn").onclick = () => $("upFile").click();
+$("upFile").onchange = () => { const f = $("upFile").files[0]; $("upFile").value = ""; if (f) upload(f); };
+$("delBtn").onclick = delVideo;
+$("sourceSel").onchange = chooseSourceLanguage;
+$("targetSel").onchange = chooseTargetLanguage;
+const es = new EventSource("/api/events");
+function handleEvent(ev) {
+  if (ev.reload_required && ev.state !== "reload") modelFailed(ev.model_error || ev.error);
+  if (Number.isInteger(ev.sid) &&
+      ((sourceSessionSid !== null && ev.sid < sourceSessionSid) || (ev.type !== "info" && ev.sid <= ignoredMediaSid))) return;
+  if (handleTranslationEvent(ev)) return;
+  if (ev.type === "info") {
+    if (ev.state === "reload") {
+      if (!switching) watchSwitch(beginSwitch(ev.clock_ms,ev.lang));
+      return;
+    }
+    if (!ev.clock_ms) return;
+    if (ev.state === "done" || ev.state === "idle" || ev.state === "error" || ev.state === "cancelled") draining=false;
+    clock = String(ev.clock_ms); lang = ev.lang;
+    if (switching && ev.state !== "reload") {
+      if (!ev.reload_required) {
+        modelNeedsReload=false; statusUncertain=false;
+        audioDelivery.discardFailedRecording(); sid=null; running=false;
+        if (incompleteRecording) {
+          partialResult("Models reloaded. Start the recording again from the beginning; previous results remain partial.");
+          upMsg(""); updateStartLabel();
+        }
+      }
+      finishSwitch();
+    }
+    if (!ev.reload_required && modelNeedsReload && ev.state === "idle") {
+      modelNeedsReload=false; audioDelivery.discardFailedRecording(); sid=null;
+      partialResult("Models reloaded. Start the recording again from the beginning."); upMsg(""); updateStartLabel();
+    }
+    $("wordsK").textContent = lang === "zh" ? "Characters" : "Words";
+    updateVideoUi();
+    if (!ev.video || ev.video === video.dataset.id)
+      refreshTargetChoices($("sourceSel").value, ev.translation_target);
+    $("cfg").textContent = ev.lang.toUpperCase() + " · " + ev.clock_ms + " ms";
+    $("foot").textContent = "Models loaded in " + ev.init_s + " s";
+    if (ev.sid > ignoredMediaSid && !modelNeedsReload && !audioDelivery.failed && !incompleteRecording)
+      setState(ev.state === "running" ? "running" : ev.state === "done" ? "done" : "",
+        ev.state === "running" ? "Transcribing" : ev.state === "done" ? (translationPending ? "Finishing translation" : "Done") : ev.state === "cancelled" ? "Cancelled" : "Ready");
+    updateRecoveryControls();
+  } else if (ev.type === "translation_snapshot") {
+    if (sourceSessionSid !== ev.sid) { resetTranscript(false, true); sourceSessionSid=ev.sid; }
+    for (const part of ev.paragraphs || []) renderSource(part);
+  } else if (ev.type === "reset" || ev.type === "translation_reset") {
+    if (ev.sid !== undefined) sourceSessionSid=ev.sid;
+    if (ev.target) refreshTargetChoices($("sourceSel").value, ev.target);
+    resetTranscript(false);
+  } else if (ev.type === "text") {
+    for (const part of ev.parts || []) renderSource(part);
+    $("sAudio").textContent = fmtT(ev.audio_s);
+    if (ev.rtf !== null) $("sStep").textContent = ev.elapsed_ms.toFixed(0) + " ms";
+    if (ev.first_char_s !== null) $("sFirst").textContent = ev.first_char_s.toFixed(2) + " s";
+    $("sWords").textContent = sourceUnitCount;
+    if (ev.rtf !== null) {
+      rtfPts.push([ev.audio_s, ev.rtf]); trimPts(rtfPts);
+      $("rtfVal").textContent = ev.rtf.toFixed(2);
+      redrawRtf();
+    }
+  } else if (ev.type === "loading") {
+    if (ev.on) {
+      running = false; video.pause();
+      if (!switching) watchSwitch(beginSwitch(ev.clock_ms, ev.lang));
+    } else finishSwitch(ev.error ? "Model load failed: " + ev.error : null);
+  } else if (ev.type === "sys_hist") {
+    dramPts.length = 0; ev.pts.forEach(p => dramPts.push(p)); dramTotal = ev.dram_total_mb; redrawDram();
+  } else if (ev.type === "sys") {
+    dramTotal = ev.dram_total_mb; dramPts.push([ev.t, ev.dram_used_mb]);
+    while (dramPts.length && dramPts[0][0] < ev.t - 120) dramPts.shift();
+    $("dramVal").textContent = `${(ev.dram_used_mb / 1024).toFixed(1)} / ${(ev.dram_total_mb / 1024).toFixed(1)} GB · ${Math.round(100 * ev.dram_used_mb / ev.dram_total_mb)}%`;
+    redrawDram();
+  } else if (ev.type === "state") {
+    if (ev.state === "running") setState("running", "Transcribing");
+    else if (ev.state === "done") {
+      draining=false;
+      if (incompleteRecording || modelNeedsReload || audioDelivery.failed) { updateRecoveryControls(); return; }
+      setState("done", translationPending ? "Finishing translation" : "Done");
+      running = false;
+      if (ev.reason === "length") partialResult("Transcription reached its output limit. The remaining audio has no transcript.");
+    } else if (ev.state === "cancelled") {
+      draining=false;
+      setState("", "Cancelled");
+    } else if (!modelNeedsReload && !incompleteRecording) {
+      setState("", "Stopped");
+      if (ev.error) finishSwitch("Engine error: " + ev.error);
+    }
+    updateRecoveryControls();
+  }
+}
+es.onmessage = m => handleEvent(JSON.parse(m.data));
+es.onerror = () => {
+  resumeAfterRetry=resumeAfterRetry || running;
+  statusUncertain=true; running=false; video.pause();
+  setState("", "Disconnected — retry connection");
+  updateRecoveryControls();
+};
+
+loadVideos().catch(error => { statusUncertain=true; upMsg("Could not load board status: "+error.message,true); updateRecoveryControls(); });
+function showHelp(on) { $("help").classList.toggle("on", on); }
+$("helpBtn").onclick = () => showHelp(true);
+$("helpClose").onclick = () => showHelp(false);
+$("help").addEventListener("click", e => { if (e.target.id === "help") showHelp(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") showHelp(false); });
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+./components/asr/sdk/wheels/pandora_runtime-1.0.2-py3-none-linux_aarch64.whl
+./components/asr/sdk
+./components/translation/sdk
+numpy==1.26.4
+soundfile==0.13.1
+huggingface_hub>=1.0,<2

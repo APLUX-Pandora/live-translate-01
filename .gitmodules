@@ -1,0 +1,6 @@
+[submodule "components/asr"]
+	path = components/asr
+	url = https://github.com/APLUX-Pandora/audio8-asr-infinite-demo.git
+[submodule "components/translation"]
+	path = components/translation
+	url = https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo.git

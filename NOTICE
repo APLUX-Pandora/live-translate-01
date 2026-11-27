@@ -1,0 +1,33 @@
+Live Translate 01
+=================
+
+Copyright APLUX. Application and example code use Apache-2.0.
+The audio worklet draws on Edge0 Audio8-ASR-Infinite's Apache-2.0 client.
+APLUX modified the resampling, multichannel input and capture lifecycle.
+https://github.com/Edge0-AI/Audio8-ASR-Infinite/blob/main/client/pcm-worklet.js
+
+The Apache-2.0 audio recovery policy is adapted from the APLUX
+Audio8-ASR-Infinite Web Demo.
+https://github.com/APLUX-Pandora/audio8-asr-infinite-demo/blob/main/demo/reset_policy.py
+
+Separately installed components
+-------------------------------
+Audio8-ASR-Infinite SDK: upstream NOTICE, THIRD_PARTY_NOTICES.txt,
+LICENSES/ and sdk/lib/ notices cover the SDK's third-party components
+and Qualcomm QNN libraries.
+https://github.com/APLUX-Pandora/audio8-asr-infinite-demo
+
+Hy-MT2-1.8B SDK: upstream NOTICE, LICENSES/ and sdk/lib/ notices cover the
+SDK's third-party components, including Qualcomm QNN and Genie, the tokenizer
+dependencies and the upstream model terms.
+https://github.com/APLUX-Pandora/hy-mt2-1.8b-demo
+
+The separately installed Pandora Runtime and Python dependencies retain their
+package licenses. The component model repositories supply their own notices.
+
+Media
+-----
+The built-in lecture, poster, linked recording and upload example contain
+part of “Beyond the README: Crafting a Better Developer Experience for Open Source Projects,”
+by Lorna Mitchell, recorded by FOSDEM. CC BY 2.0 BE.
+See docs/MEDIA_ATTRIBUTION.md for the source, license and edit details.
